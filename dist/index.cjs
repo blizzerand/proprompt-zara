@@ -377,82 +377,6 @@ var ChatAnalytics = class {
 
 // src/Chatbot.jsx
 var import_jsx_runtime = require("react/jsx-runtime");
-var ZARA_THEME_VARS = {
-  dark: {
-    "--zara-primary": "#77D501",
-    "--zara-primary-light": "#8FE620",
-    "--zara-primary-dim": "rgba(119,213,1,0.14)",
-    "--zara-primary-border": "rgba(119,213,1,0.24)",
-    "--zara-primary-text": "#0A0E06",
-    "--zara-bg-base": "#070A05",
-    "--zara-bg-alt": "#0A0D07",
-    "--zara-bg-deep": "#0B0E08",
-    "--zara-bg-card": "#0D1009",
-    "--zara-bg-card-hover": "#101408",
-    "--zara-border": "rgba(255,255,255,0.07)",
-    "--zara-border-md": "rgba(255,255,255,0.12)",
-    "--zara-border-strong": "rgba(255,255,255,0.18)",
-    "--zara-text-primary": "#FFFFFF",
-    "--zara-text-muted": "rgba(255,255,255,0.55)",
-    "--zara-text-dim": "rgba(255,255,255,0.35)",
-    "--zara-text-placeholder": "rgba(255,255,255,0.25)",
-    // Aliased to legacy names too so existing var(--bg-base) refs inside
-    // this component resolve without rewriting every style block.
-    "--primary": "#77D501",
-    "--primary-light": "#8FE620",
-    "--primary-dim": "rgba(119,213,1,0.14)",
-    "--primary-border": "rgba(119,213,1,0.24)",
-    "--primary-text": "#0A0E06",
-    "--bg-base": "#070A05",
-    "--bg-alt": "#0A0D07",
-    "--bg-deep": "#0B0E08",
-    "--bg-card": "#0D1009",
-    "--bg-card-hover": "#101408",
-    "--border": "rgba(255,255,255,0.07)",
-    "--border-md": "rgba(255,255,255,0.12)",
-    "--border-strong": "rgba(255,255,255,0.18)",
-    "--text-primary": "#FFFFFF",
-    "--text-muted": "rgba(255,255,255,0.55)",
-    "--text-dim": "rgba(255,255,255,0.35)",
-    "--text-placeholder": "rgba(255,255,255,0.25)"
-  },
-  light: {
-    "--zara-primary": "#5FAA00",
-    "--zara-primary-light": "#77D501",
-    "--zara-primary-dim": "rgba(95,170,0,0.10)",
-    "--zara-primary-border": "rgba(95,170,0,0.22)",
-    "--zara-primary-text": "#FFFFFF",
-    "--zara-bg-base": "#FAFCF8",
-    "--zara-bg-alt": "#F3F7EF",
-    "--zara-bg-deep": "#EDF3E8",
-    "--zara-bg-card": "#FFFFFF",
-    "--zara-bg-card-hover": "#F7FAF4",
-    "--zara-border": "rgba(0,0,0,0.07)",
-    "--zara-border-md": "rgba(0,0,0,0.12)",
-    "--zara-border-strong": "rgba(0,0,0,0.18)",
-    "--zara-text-primary": "#0F1A08",
-    "--zara-text-muted": "rgba(15,26,8,0.55)",
-    "--zara-text-dim": "rgba(15,26,8,0.38)",
-    "--zara-text-placeholder": "rgba(15,26,8,0.25)",
-    "--primary": "#5FAA00",
-    "--primary-light": "#77D501",
-    "--primary-dim": "rgba(95,170,0,0.10)",
-    "--primary-border": "rgba(95,170,0,0.22)",
-    "--primary-text": "#FFFFFF",
-    "--bg-base": "#FAFCF8",
-    "--bg-alt": "#F3F7EF",
-    "--bg-deep": "#EDF3E8",
-    "--bg-card": "#FFFFFF",
-    "--bg-card-hover": "#F7FAF4",
-    "--border": "rgba(0,0,0,0.07)",
-    "--border-md": "rgba(0,0,0,0.12)",
-    "--border-strong": "rgba(0,0,0,0.18)",
-    "--text-primary": "#0F1A08",
-    "--text-muted": "rgba(15,26,8,0.55)",
-    "--text-dim": "rgba(15,26,8,0.38)",
-    "--text-placeholder": "rgba(15,26,8,0.25)"
-  }
-};
 function normalizeBotMarkdown(text) {
   return String(text || "").replace(/\\([[\]()])/g, "$1").replace(/[［【〔]/g, "[").replace(/[］】〕]/g, "]").replace(/（/g, "(").replace(/）/g, ")").replace(/\]\s+\(/g, "](").replace(/ /g, " ").replace(/[​-‏﻿]/g, "");
 }
@@ -478,7 +402,7 @@ function renderInline(text) {
           target: "_blank",
           rel: "noopener noreferrer",
           style: {
-            color: "var(--primary)",
+            color: "#77D501",
             textDecoration: "underline",
             textUnderlineOffset: 2,
             textDecorationThickness: 1,
@@ -707,8 +631,8 @@ function HandoffCard({
     "Hey! I had a few questions about Proprompt, can we connect?"
   );
   const waUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${waMessage}` : null;
-  const statusColor = status === "failed" ? "#FF5C5C" : "var(--primary)";
-  const statusBg = status === "failed" ? "rgba(255,92,92,0.15)" : "var(--primary-dim)";
+  const statusColor = status === "failed" ? "#FF5C5C" : "#77D501";
+  const statusBg = status === "failed" ? "rgba(255,92,92,0.15)" : "rgba(119,213,1,0.14)";
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     import_framer_motion.motion.div,
     {
@@ -720,7 +644,7 @@ function HandoffCard({
         padding: 12,
         borderRadius: 14,
         background: isDark ? "rgba(255,255,255,0.035)" : "rgba(15,26,8,0.04)",
-        border: "1px solid var(--border)",
+        border: "1px solid rgba(255,255,255,0.07)",
         display: "flex",
         flexDirection: "column",
         gap: 10,
@@ -769,7 +693,7 @@ function HandoffCard({
                 minWidth: 0,
                 fontSize: 12.5,
                 fontWeight: 600,
-                color: "var(--text-primary)",
+                color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 gap: 6
@@ -800,21 +724,21 @@ function HandoffCard({
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Ticket, { size: 14, style: { color: "var(--text-dim)" } })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
           "div",
           {
             style: {
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "rgba(255,255,255,0.55)",
               lineHeight: 1.5
             },
             children: [
               userInfo?.email ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
                 "We'll reply by email to",
                 " ",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--text-primary)" }, children: userInfo.email }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
                 "."
               ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: "Our team will reply by email shortly." }),
               waUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: " Need a quicker response? Message us on WhatsApp." })
@@ -875,7 +799,7 @@ function AgentAvatar({ size = 36, agent }) {
         height: size,
         borderRadius: radius,
         overflow: "hidden",
-        background: showImage ? "var(--bg-card)" : "linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)",
+        background: showImage ? "#0D1009" : "linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -908,7 +832,7 @@ function TypingDots() {
         width: 6,
         height: 6,
         borderRadius: "50%",
-        background: "var(--text-muted)",
+        background: "rgba(255,255,255,0.55)",
         display: "inline-block"
       }
     },
@@ -937,7 +861,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           borderRadius: 12,
           overflow: "hidden",
           background: tileBg,
-          border: "1px solid var(--border)",
+          border: "1px solid rgba(255,255,255,0.07)",
           flexShrink: 0
         },
         children: [
@@ -998,7 +922,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           borderRadius: 12,
           overflow: "hidden",
           background: "#000",
-          border: "1px solid var(--border)",
+          border: "1px solid rgba(255,255,255,0.07)",
           flexShrink: 0
         },
         children: [
@@ -1055,7 +979,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
         padding: compact ? "8px 28px 8px 10px" : "10px 12px",
         borderRadius: 12,
         background: tileBg,
-        border: "1px solid var(--border)",
+        border: "1px solid rgba(255,255,255,0.07)",
         minWidth: compact ? 180 : 220,
         maxWidth: 260,
         flexShrink: 0
@@ -1065,8 +989,8 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           width: 36,
           height: 36,
           borderRadius: 10,
-          background: "var(--primary-dim)",
-          color: "var(--primary)",
+          background: "rgba(119,213,1,0.14)",
+          color: "#77D501",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1079,7 +1003,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               style: {
                 fontSize: 13,
                 fontWeight: 600,
-                color: "var(--text-primary)",
+                color: "#FFFFFF",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap"
@@ -1088,7 +1012,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               children: att.name
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: formatBytes(att.size) })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }, children: formatBytes(att.size) })
         ] }),
         !removable && att.url && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "a",
@@ -1097,15 +1021,15 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
             download: att.name,
             "aria-label": `Download ${att.name}`,
             style: {
-              color: "var(--text-muted)",
+              color: "rgba(255,255,255,0.55)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               padding: 4,
               borderRadius: 6
             },
-            onMouseEnter: (e) => e.currentTarget.style.color = "var(--primary)",
-            onMouseLeave: (e) => e.currentTarget.style.color = "var(--text-muted)",
+            onMouseEnter: (e) => e.currentTarget.style.color = "#77D501",
+            onMouseLeave: (e) => e.currentTarget.style.color = "rgba(255,255,255,0.55)",
             children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Download, { size: 15 })
           }
         ),
@@ -1160,8 +1084,8 @@ function LeadForm({ onSubmit, isDark }) {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    background: "var(--bg-card)",
-    border: `1px solid ${touched && !valid ? "#FF7A7A" : "var(--border-md)"}`,
+    background: "#0D1009",
+    border: `1px solid ${touched && !valid ? "#FF7A7A" : "rgba(255,255,255,0.12)"}`,
     borderRadius: 10,
     padding: "8px 12px",
     transition: "border-color 0.18s ease"
@@ -1180,13 +1104,13 @@ function LeadForm({ onSubmit, isDark }) {
         padding: 14,
         borderRadius: "18px 18px 18px 4px",
         background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
-        border: "1px solid var(--border)",
+        border: "1px solid rgba(255,255,255,0.07)",
         maxWidth: "92%"
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13.5, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13.5, color: "#FFFFFF", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: fieldStyle(nameValid || !touched), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.User, { size: 14, style: { color: "var(--text-muted)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.User, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "input",
             {
@@ -1201,7 +1125,7 @@ function LeadForm({ onSubmit, isDark }) {
                 background: "transparent",
                 border: "none",
                 outline: "none",
-                color: "var(--text-primary)",
+                color: "#FFFFFF",
                 fontFamily: "inherit",
                 fontSize: 13.5,
                 padding: 0
@@ -1210,7 +1134,7 @@ function LeadForm({ onSubmit, isDark }) {
           )
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: fieldStyle(emailValid || !touched), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Mail, { size: 14, style: { color: "var(--text-muted)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Mail, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "input",
             {
@@ -1224,7 +1148,7 @@ function LeadForm({ onSubmit, isDark }) {
                 background: "transparent",
                 border: "none",
                 outline: "none",
-                color: "var(--text-primary)",
+                color: "#FFFFFF",
                 fontFamily: "inherit",
                 fontSize: 13.5,
                 padding: 0
@@ -1243,8 +1167,8 @@ function LeadForm({ onSubmit, isDark }) {
               marginTop: 4,
               padding: "9px 14px",
               borderRadius: 10,
-              background: ready ? "var(--primary)" : "var(--border)",
-              color: ready ? "var(--primary-text)" : "var(--text-dim)",
+              background: ready ? "#77D501" : "rgba(255,255,255,0.07)",
+              color: ready ? "#0A0E06" : "rgba(255,255,255,0.35)",
               fontWeight: 600,
               fontSize: 13,
               border: "none",
@@ -1268,7 +1192,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
         initial: { opacity: 0, y: 4 },
         animate: { opacity: 1, y: 0 },
         transition: { duration: 0.3, ease },
-        style: { textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", padding: "4px 0" },
+        style: { textAlign: "center", fontSize: 11.5, color: "rgba(255,255,255,0.55)", padding: "4px 0" },
         children: [
           "\u2713 ",
           msg.content
@@ -1283,8 +1207,8 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
   const userBg = isDark ? "#FFFFFF" : "#0F1A08";
   const userColor = isDark ? "#0A0E06" : "#FFFFFF";
   const botBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)";
-  const botColor = "var(--text-primary)";
-  const botBorder = "1px solid var(--border)";
+  const botColor = "#FFFFFF";
+  const botBorder = "1px solid rgba(255,255,255,0.07)";
   const onlyImages = hasAttachments && !hasText && msg.attachments.every((a) => a.kind === "image" || a.kind === "video");
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     import_framer_motion.motion.div,
@@ -1386,8 +1310,8 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               gap: 8,
               padding: "10px 14px",
               borderRadius: 12,
-              background: "var(--primary)",
-              color: "var(--primary-text)",
+              background: "#77D501",
+              color: "#0A0E06",
               border: "none",
               cursor: "pointer",
               fontFamily: "inherit",
@@ -1404,7 +1328,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chatbot-scroll", style: { flex: 1, overflowY: "auto", padding: "4px 8px 14px" }, children: sorted.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: {
           padding: "40px 20px",
           textAlign: "center",
-          color: "var(--text-muted)",
+          color: "rgba(255,255,255,0.55)",
           fontSize: 13
         }, children: "No chats yet." }) : sorted.map((chat) => {
           const isActive = chat.id === activeChatId;
@@ -1425,8 +1349,8 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                 margin: "2px 0",
                 borderRadius: 12,
                 cursor: isConfirm ? "default" : "pointer",
-                background: isActive ? "var(--primary-dim)" : "transparent",
-                border: `1px solid ${isActive ? "var(--primary-border)" : "transparent"}`,
+                background: isActive ? "rgba(119,213,1,0.14)" : "transparent",
+                border: `1px solid ${isActive ? "rgba(119,213,1,0.24)" : "transparent"}`,
                 transition: "background 0.18s ease, border-color 0.18s ease"
               },
               onClick: () => {
@@ -1442,7 +1366,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                         minWidth: 0,
                         fontSize: 13.5,
                         fontWeight: 600,
-                        color: "var(--text-primary)",
+                        color: "#FFFFFF",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap"
@@ -1451,14 +1375,14 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       children: chat.title
                     }
                   ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--text-dim)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   "div",
                   {
                     style: {
                       fontSize: 12,
-                      color: "var(--text-muted)",
+                      color: "rgba(255,255,255,0.55)",
                       marginTop: 3,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -1487,7 +1411,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       height: 28,
                       borderRadius: 8,
                       background: "transparent",
-                      color: "var(--text-dim)",
+                      color: "rgba(255,255,255,0.35)",
                       border: "none",
                       cursor: "pointer",
                       display: "flex",
@@ -1502,7 +1426,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                     },
                     onMouseLeave: (e) => {
                       e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-dim)";
+                      e.currentTarget.style.color = "rgba(255,255,255,0.35)";
                     },
                     children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Trash2, { size: 14 })
                   }
@@ -1514,7 +1438,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                   animate: { opacity: 1 },
                   style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--text-primary)" }, children: "Delete this chat?" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "#FFFFFF" }, children: "Delete this chat?" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                         "button",
@@ -1529,8 +1453,8 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                             fontSize: 12,
                             borderRadius: 8,
                             background: "transparent",
-                            color: "var(--text-muted)",
-                            border: "1px solid var(--border)",
+                            color: "rgba(255,255,255,0.55)",
+                            border: "1px solid rgba(255,255,255,0.07)",
                             cursor: "pointer",
                             fontFamily: "inherit"
                           },
@@ -1923,20 +1847,18 @@ function Chatbot({
       addFiles(files);
     }
   };
-  const accent = "var(--primary)";
+  const accent = "#77D501";
   const panelBg = isDark ? "#0B0E08" : "#FFFFFF";
   const headerGradient = isDark ? "linear-gradient(180deg, rgba(119,213,1,0.08) 0%, rgba(119,213,1,0) 100%)" : "linear-gradient(180deg, rgba(95,170,0,0.06) 0%, rgba(95,170,0,0) 100%)";
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !typing;
   const showSuggestions = activeChat && activeChat.messages.length === 1 && !typing;
   const activeChatIsEmpty = !!activeChat && !activeChat.messages.some((m) => m.role === "user");
-  const themeStyle = theme === "light" ? ZARA_THEME_VARS.light : ZARA_THEME_VARS.dark;
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     "div",
     {
       "data-zara-root": true,
       "data-zara-theme": theme === "light" ? "light" : "dark",
       style: {
-        ...themeStyle,
         // Use the Inter system stack — matches the website's brand,
         // gracefully falls back where Inter isn't loaded.
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
@@ -1962,7 +1884,7 @@ function Chatbot({
               height: 58,
               borderRadius: "50%",
               background: accent,
-              color: "var(--primary-text)",
+              color: "#0A0E06",
               border: "none",
               cursor: "pointer",
               display: "flex",
@@ -2001,7 +1923,7 @@ function Chatbot({
                     height: 12,
                     borderRadius: "50%",
                     background: "#FF5C5C",
-                    border: "2px solid var(--primary)"
+                    border: "2px solid #77D501"
                   }
                 }
               )
@@ -2035,7 +1957,7 @@ function Chatbot({
               maxHeight: "calc(100vh - 48px)",
               background: panelBg,
               borderRadius: 20,
-              border: "1px solid var(--border-md)",
+              border: "1px solid rgba(255,255,255,0.12)",
               boxShadow: isDark ? "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(119,213,1,0.06)" : "0 24px 80px rgba(0,0,0,0.18)",
               display: "flex",
               flexDirection: "column",
@@ -2054,7 +1976,7 @@ function Chatbot({
                     position: "absolute",
                     inset: 8,
                     borderRadius: 14,
-                    border: "2px dashed var(--primary)",
+                    border: "2px dashed #77D501",
                     background: isDark ? "rgba(119,213,1,0.07)" : "rgba(95,170,0,0.08)",
                     backdropFilter: "blur(6px)",
                     zIndex: 5,
@@ -2075,18 +1997,18 @@ function Chatbot({
                           width: 46,
                           height: 46,
                           borderRadius: 14,
-                          background: "var(--primary-dim)",
-                          color: "var(--primary)",
+                          background: "rgba(119,213,1,0.14)",
+                          color: "#77D501",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          border: "1px solid var(--primary-border)"
+                          border: "1px solid rgba(119,213,1,0.24)"
                         },
                         children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.UploadCloud, { size: 22 })
                       }
                     ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }, children: "Drop to attach" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--text-muted)" }, children: "Images, video, audio, or documents" })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "#FFFFFF" }, children: "Drop to attach" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "rgba(255,255,255,0.55)" }, children: "Images, video, audio, or documents" })
                   ]
                 }
               ) }),
@@ -2096,7 +2018,7 @@ function Chatbot({
                   style: {
                     position: "relative",
                     padding: "14px 14px 12px",
-                    borderBottom: "1px solid var(--border)",
+                    borderBottom: "1px solid rgba(255,255,255,0.07)",
                     background: headerGradient
                   },
                   children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
@@ -2110,8 +2032,8 @@ function Chatbot({
                           height: 34,
                           borderRadius: 10,
                           background: "transparent",
-                          border: "1px solid var(--border)",
-                          color: "var(--text-muted)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          color: "rgba(255,255,255,0.55)",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -2120,14 +2042,14 @@ function Chatbot({
                           transition: "all 0.18s ease"
                         },
                         onMouseEnter: (e) => {
-                          e.currentTarget.style.background = "var(--primary-dim)";
-                          e.currentTarget.style.color = "var(--primary)";
-                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                          e.currentTarget.style.background = "rgba(119,213,1,0.14)";
+                          e.currentTarget.style.color = "#77D501";
+                          e.currentTarget.style.borderColor = "rgba(119,213,1,0.24)";
                         },
                         onMouseLeave: (e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--text-muted)";
-                          e.currentTarget.style.borderColor = "var(--border)";
+                          e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
                         children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.MessagesSquare, { size: 15 })
                       }
@@ -2141,8 +2063,8 @@ function Chatbot({
                           height: 34,
                           borderRadius: 10,
                           background: "transparent",
-                          border: "1px solid var(--border)",
-                          color: "var(--text-muted)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          color: "rgba(255,255,255,0.55)",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -2151,14 +2073,14 @@ function Chatbot({
                           transition: "all 0.18s ease"
                         },
                         onMouseEnter: (e) => {
-                          e.currentTarget.style.background = "var(--primary-dim)";
-                          e.currentTarget.style.color = "var(--primary)";
-                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                          e.currentTarget.style.background = "rgba(119,213,1,0.14)";
+                          e.currentTarget.style.color = "#77D501";
+                          e.currentTarget.style.borderColor = "rgba(119,213,1,0.24)";
                         },
                         onMouseLeave: (e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--text-muted)";
-                          e.currentTarget.style.borderColor = "var(--border)";
+                          e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
                         children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.ArrowLeft, { size: 15 })
                       }
@@ -2172,7 +2094,7 @@ function Chatbot({
                             style: {
                               fontSize: 14.5,
                               fontWeight: 700,
-                              color: "var(--text-primary)",
+                              color: "#FFFFFF",
                               letterSpacing: "-0.01em"
                             },
                             children: agent.name
@@ -2183,7 +2105,7 @@ function Chatbot({
                           {
                             style: {
                               fontSize: 12,
-                              color: "var(--text-muted)",
+                              color: "rgba(255,255,255,0.55)",
                               marginTop: 1,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -2194,8 +2116,8 @@ function Chatbot({
                         )
                       ] })
                     ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14.5, fontWeight: 700, color: "var(--text-primary)" }, children: "Your chats" }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14.5, fontWeight: 700, color: "#FFFFFF" }, children: "Your chats" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.55)", marginTop: 1 }, children: [
                         chats.length,
                         " ",
                         chats.length === 1 ? "conversation" : "conversations"
@@ -2212,8 +2134,8 @@ function Chatbot({
                           height: 32,
                           borderRadius: 10,
                           background: "transparent",
-                          border: "1px solid var(--border)",
-                          color: "var(--text-muted)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          color: "rgba(255,255,255,0.55)",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -2221,14 +2143,14 @@ function Chatbot({
                           transition: "all 0.18s ease"
                         },
                         onMouseEnter: (e) => {
-                          e.currentTarget.style.background = "var(--primary-dim)";
-                          e.currentTarget.style.color = "var(--primary)";
-                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                          e.currentTarget.style.background = "rgba(119,213,1,0.14)";
+                          e.currentTarget.style.color = "#77D501";
+                          e.currentTarget.style.borderColor = "rgba(119,213,1,0.24)";
                         },
                         onMouseLeave: (e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--text-muted)";
-                          e.currentTarget.style.borderColor = "var(--border)";
+                          e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
                         children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Plus, { size: 15 })
                       }
@@ -2243,8 +2165,8 @@ function Chatbot({
                           height: 32,
                           borderRadius: 10,
                           background: "transparent",
-                          border: "1px solid var(--border)",
-                          color: "var(--text-muted)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          color: "rgba(255,255,255,0.55)",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -2252,14 +2174,14 @@ function Chatbot({
                           transition: "all 0.18s ease"
                         },
                         onMouseEnter: (e) => {
-                          e.currentTarget.style.background = "var(--primary-dim)";
-                          e.currentTarget.style.color = "var(--text-primary)";
-                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                          e.currentTarget.style.background = "rgba(119,213,1,0.14)";
+                          e.currentTarget.style.color = "#FFFFFF";
+                          e.currentTarget.style.borderColor = "rgba(119,213,1,0.24)";
                         },
                         onMouseLeave: (e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--text-muted)";
-                          e.currentTarget.style.borderColor = "var(--border)";
+                          e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
                         children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.X, { size: 16 })
                       }
@@ -2348,7 +2270,7 @@ function Chatbot({
                                     padding: "10px 14px",
                                     borderRadius: "18px 18px 18px 4px",
                                     background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
-                                    border: "1px solid var(--border)"
+                                    border: "1px solid rgba(255,255,255,0.07)"
                                   },
                                   children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TypingDots, {})
                                 }
@@ -2374,9 +2296,9 @@ function Chatbot({
                                   style: {
                                     padding: "7px 12px",
                                     borderRadius: 999,
-                                    background: "var(--primary-dim)",
-                                    color: "var(--primary)",
-                                    border: "1px solid var(--primary-border)",
+                                    background: "rgba(119,213,1,0.14)",
+                                    color: "#77D501",
+                                    border: "1px solid rgba(119,213,1,0.24)",
                                     fontSize: 12.5,
                                     fontWeight: 500,
                                     cursor: "pointer",
@@ -2398,7 +2320,7 @@ function Chatbot({
                         onSubmit,
                         style: {
                           padding: "12px 14px 14px",
-                          borderTop: "1px solid var(--border)",
+                          borderTop: "1px solid rgba(255,255,255,0.07)",
                           background: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.015)"
                         },
                         children: [
@@ -2430,18 +2352,18 @@ function Chatbot({
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 4,
-                                background: "var(--bg-card)",
-                                border: "1px solid var(--border-md)",
+                                background: "#0D1009",
+                                border: "1px solid rgba(255,255,255,0.12)",
                                 borderRadius: 14,
                                 padding: "6px",
                                 transition: "border-color 0.2s ease, box-shadow 0.2s ease"
                               },
                               onFocus: (e) => {
-                                e.currentTarget.style.borderColor = "var(--primary-border)";
-                                e.currentTarget.style.boxShadow = "0 0 0 3px var(--primary-dim)";
+                                e.currentTarget.style.borderColor = "rgba(119,213,1,0.24)";
+                                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(119,213,1,0.14)";
                               },
                               onBlur: (e) => {
-                                e.currentTarget.style.borderColor = "var(--border-md)";
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
                                 e.currentTarget.style.boxShadow = "none";
                               },
                               children: [
@@ -2459,7 +2381,7 @@ function Chatbot({
                                       height: 34,
                                       borderRadius: 10,
                                       background: "transparent",
-                                      color: "var(--text-muted)",
+                                      color: "rgba(255,255,255,0.55)",
                                       border: "none",
                                       cursor: pendingAttachments.length >= MAX_ATTACHMENTS ? "not-allowed" : "pointer",
                                       display: "flex",
@@ -2471,12 +2393,12 @@ function Chatbot({
                                     },
                                     onMouseEnter: (e) => {
                                       if (pendingAttachments.length >= MAX_ATTACHMENTS) return;
-                                      e.currentTarget.style.background = "var(--primary-dim)";
-                                      e.currentTarget.style.color = "var(--primary)";
+                                      e.currentTarget.style.background = "rgba(119,213,1,0.14)";
+                                      e.currentTarget.style.color = "#77D501";
                                     },
                                     onMouseLeave: (e) => {
                                       e.currentTarget.style.background = "transparent";
-                                      e.currentTarget.style.color = "var(--text-muted)";
+                                      e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                                     },
                                     children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Paperclip, { size: 17 })
                                   }
@@ -2495,7 +2417,7 @@ function Chatbot({
                                       background: "transparent",
                                       border: "none",
                                       outline: "none",
-                                      color: "var(--text-primary)",
+                                      color: "#FFFFFF",
                                       fontFamily: "inherit",
                                       fontSize: 14,
                                       fontWeight: 450,
@@ -2515,8 +2437,8 @@ function Chatbot({
                                       width: 34,
                                       height: 34,
                                       borderRadius: 10,
-                                      background: canSend ? accent : "var(--border)",
-                                      color: canSend ? "var(--primary-text)" : "var(--text-dim)",
+                                      background: canSend ? accent : "rgba(255,255,255,0.07)",
+                                      color: canSend ? "#0A0E06" : "rgba(255,255,255,0.35)",
                                       border: "none",
                                       cursor: canSend ? "pointer" : "not-allowed",
                                       display: "flex",
@@ -2550,7 +2472,7 @@ function Chatbot({
                             {
                               style: {
                                 fontSize: 10.5,
-                                color: "var(--text-dim)",
+                                color: "rgba(255,255,255,0.35)",
                                 textAlign: "center",
                                 marginTop: 8,
                                 letterSpacing: 0.2
@@ -2572,8 +2494,8 @@ function Chatbot({
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
         .chatbot-scroll::-webkit-scrollbar { width: 6px; }
         .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
-        .chatbot-scroll::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 3px; }
-        .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+        .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+        .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
         .chatbot-list-row:hover .chatbot-list-trash { opacity: 1 !important; }
         /* Markdown bubble normalisation */
         .chatbot-md > *:first-child { margin-top: 0 !important; }

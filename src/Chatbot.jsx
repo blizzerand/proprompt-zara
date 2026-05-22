@@ -28,86 +28,11 @@ import { resolveAgentConfig } from './zaraAgent'
 import { ZaraClient } from './zaraClient'
 import { ChatAnalytics } from './analytics'
 
-// Self-contained theme tokens. Every var(--…) reference inside this
-// component resolves from these so the chatbot looks identical regardless
-// of what the host app's CSS does (the public site has its own brand
-// tokens; the in-app dashboard doesn't — this avoids inheritance accidents).
-const ZARA_THEME_VARS = {
-  dark: {
-    '--zara-primary':           '#77D501',
-    '--zara-primary-light':     '#8FE620',
-    '--zara-primary-dim':       'rgba(119,213,1,0.14)',
-    '--zara-primary-border':    'rgba(119,213,1,0.24)',
-    '--zara-primary-text':      '#0A0E06',
-    '--zara-bg-base':           '#070A05',
-    '--zara-bg-alt':            '#0A0D07',
-    '--zara-bg-deep':           '#0B0E08',
-    '--zara-bg-card':           '#0D1009',
-    '--zara-bg-card-hover':     '#101408',
-    '--zara-border':            'rgba(255,255,255,0.07)',
-    '--zara-border-md':         'rgba(255,255,255,0.12)',
-    '--zara-border-strong':     'rgba(255,255,255,0.18)',
-    '--zara-text-primary':      '#FFFFFF',
-    '--zara-text-muted':        'rgba(255,255,255,0.55)',
-    '--zara-text-dim':          'rgba(255,255,255,0.35)',
-    '--zara-text-placeholder':  'rgba(255,255,255,0.25)',
-    // Aliased to legacy names too so existing var(--bg-base) refs inside
-    // this component resolve without rewriting every style block.
-    '--primary':                '#77D501',
-    '--primary-light':          '#8FE620',
-    '--primary-dim':            'rgba(119,213,1,0.14)',
-    '--primary-border':         'rgba(119,213,1,0.24)',
-    '--primary-text':           '#0A0E06',
-    '--bg-base':                '#070A05',
-    '--bg-alt':                 '#0A0D07',
-    '--bg-deep':                '#0B0E08',
-    '--bg-card':                '#0D1009',
-    '--bg-card-hover':          '#101408',
-    '--border':                 'rgba(255,255,255,0.07)',
-    '--border-md':              'rgba(255,255,255,0.12)',
-    '--border-strong':          'rgba(255,255,255,0.18)',
-    '--text-primary':           '#FFFFFF',
-    '--text-muted':             'rgba(255,255,255,0.55)',
-    '--text-dim':               'rgba(255,255,255,0.35)',
-    '--text-placeholder':       'rgba(255,255,255,0.25)',
-  },
-  light: {
-    '--zara-primary':           '#5FAA00',
-    '--zara-primary-light':     '#77D501',
-    '--zara-primary-dim':       'rgba(95,170,0,0.10)',
-    '--zara-primary-border':    'rgba(95,170,0,0.22)',
-    '--zara-primary-text':      '#FFFFFF',
-    '--zara-bg-base':           '#FAFCF8',
-    '--zara-bg-alt':            '#F3F7EF',
-    '--zara-bg-deep':           '#EDF3E8',
-    '--zara-bg-card':           '#FFFFFF',
-    '--zara-bg-card-hover':     '#F7FAF4',
-    '--zara-border':            'rgba(0,0,0,0.07)',
-    '--zara-border-md':         'rgba(0,0,0,0.12)',
-    '--zara-border-strong':     'rgba(0,0,0,0.18)',
-    '--zara-text-primary':      '#0F1A08',
-    '--zara-text-muted':        'rgba(15,26,8,0.55)',
-    '--zara-text-dim':          'rgba(15,26,8,0.38)',
-    '--zara-text-placeholder':  'rgba(15,26,8,0.25)',
-    '--primary':                '#5FAA00',
-    '--primary-light':          '#77D501',
-    '--primary-dim':            'rgba(95,170,0,0.10)',
-    '--primary-border':         'rgba(95,170,0,0.22)',
-    '--primary-text':           '#FFFFFF',
-    '--bg-base':                '#FAFCF8',
-    '--bg-alt':                 '#F3F7EF',
-    '--bg-deep':                '#EDF3E8',
-    '--bg-card':                '#FFFFFF',
-    '--bg-card-hover':          '#F7FAF4',
-    '--border':                 'rgba(0,0,0,0.07)',
-    '--border-md':              'rgba(0,0,0,0.12)',
-    '--border-strong':          'rgba(0,0,0,0.18)',
-    '--text-primary':           '#0F1A08',
-    '--text-muted':             'rgba(15,26,8,0.55)',
-    '--text-dim':               'rgba(15,26,8,0.38)',
-    '--text-placeholder':       'rgba(15,26,8,0.25)',
-  },
-}
+// Theme tokens are hardcoded inline at every style site below. Past
+// attempts to thread tokens via CSS custom properties broke in the
+// in-app dashboard (CRA + Tailwind preflight + preact-compat shim) where
+// host-defined :root / body vars shadowed ours. Literal values are the
+// only way to guarantee identical rendering across both host apps.
 
 // Zara's markdown isn't always perfectly formed — the LLM occasionally
 // backslash-escapes brackets, swaps in fullwidth characters, or inserts
@@ -149,7 +74,7 @@ function renderInline(text) {
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          color: 'var(--primary)',
+          color: '#77D501',
           textDecoration: 'underline',
           textUnderlineOffset: 2,
           textDecorationThickness: 1,
@@ -467,9 +392,9 @@ function HandoffCard({
   const waUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${waMessage}` : null
 
   const statusColor =
-    status === 'failed' ? '#FF5C5C' : 'var(--primary)'
+    status === 'failed' ? '#FF5C5C' : '#77D501'
   const statusBg =
-    status === 'failed' ? 'rgba(255,92,92,0.15)' : 'var(--primary-dim)'
+    status === 'failed' ? 'rgba(255,92,92,0.15)' : 'rgba(119,213,1,0.14)'
 
   return (
     <Motion.div
@@ -481,7 +406,7 @@ function HandoffCard({
         padding: 12,
         borderRadius: 14,
         background: isDark ? 'rgba(255,255,255,0.035)' : 'rgba(15,26,8,0.04)',
-        border: '1px solid var(--border)',
+        border: '1px solid rgba(255,255,255,0.07)',
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
@@ -519,7 +444,7 @@ function HandoffCard({
         <div
           style={{
             flex: 1, minWidth: 0,
-            fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)',
+            fontSize: 12.5, fontWeight: 600, color: '#FFFFFF',
             display: 'flex', alignItems: 'center', gap: 6,
           }}
         >
@@ -542,18 +467,18 @@ function HandoffCard({
             </span>
           )}
         </div>
-        <Ticket size={14} style={{ color: 'var(--text-dim)' }} />
+        <Ticket size={14} style={{ color: 'rgba(255,255,255,0.35)' }} />
       </div>
 
       {/* Explanation — sets expectations and positions WhatsApp as the fallback */}
       <div
         style={{
-          fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5,
+          fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
         }}
       >
         {userInfo?.email ? (
           <>We'll reply by email to{' '}
-            <span style={{ color: 'var(--text-primary)' }}>{userInfo.email}</span>.</>
+            <span style={{ color: '#FFFFFF' }}>{userInfo.email}</span>.</>
         ) : (
           <>Our team will reply by email shortly.</>
         )}
@@ -607,7 +532,7 @@ function AgentAvatar({ size = 36, agent }) {
         borderRadius: radius,
         overflow: 'hidden',
         background: showImage
-          ? 'var(--bg-card)'
+          ? '#0D1009'
           : 'linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)',
         display: 'flex',
         alignItems: 'center',
@@ -644,7 +569,7 @@ function TypingDots() {
           transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut', delay: i * 0.15 }}
           style={{
             width: 6, height: 6, borderRadius: '50%',
-            background: 'var(--text-muted)', display: 'inline-block',
+            background: 'rgba(255,255,255,0.55)', display: 'inline-block',
           }}
         />
       ))}
@@ -672,7 +597,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           height: compact ? 64 : 'auto',
           maxHeight: compact ? 64 : 240,
           borderRadius: 12, overflow: 'hidden',
-          background: tileBg, border: '1px solid var(--border)',
+          background: tileBg, border: '1px solid rgba(255,255,255,0.07)',
           flexShrink: 0,
         }}
       >
@@ -715,7 +640,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           position: 'relative',
           width: compact ? 96 : 240,
           borderRadius: 12, overflow: 'hidden',
-          background: '#000', border: '1px solid var(--border)',
+          background: '#000', border: '1px solid rgba(255,255,255,0.07)',
           flexShrink: 0,
         }}
       >
@@ -751,13 +676,13 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 10,
         padding: compact ? '8px 28px 8px 10px' : '10px 12px',
-        borderRadius: 12, background: tileBg, border: '1px solid var(--border)',
+        borderRadius: 12, background: tileBg, border: '1px solid rgba(255,255,255,0.07)',
         minWidth: compact ? 180 : 220, maxWidth: 260, flexShrink: 0,
       }}
     >
       <div style={{
         width: 36, height: 36, borderRadius: 10,
-        background: 'var(--primary-dim)', color: 'var(--primary)',
+        background: 'rgba(119,213,1,0.14)', color: '#77D501',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
         {fileKindIcon(att.kind, 18)}
@@ -765,14 +690,14 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+            fontSize: 13, fontWeight: 600, color: '#FFFFFF',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}
           title={att.name}
         >
           {att.name}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
           {formatBytes(att.size)}
         </div>
       </div>
@@ -780,11 +705,11 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
         <a
           href={att.url} download={att.name} aria-label={`Download ${att.name}`}
           style={{
-            color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 4, borderRadius: 6,
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+          onMouseEnter={e => (e.currentTarget.style.color = '#77D501')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
         >
           <Download size={15} />
         </a>
@@ -830,8 +755,8 @@ function LeadForm({ onSubmit, isDark }) {
 
   const fieldStyle = (valid) => ({
     display: 'flex', alignItems: 'center', gap: 8,
-    background: 'var(--bg-card)',
-    border: `1px solid ${touched && !valid ? '#FF7A7A' : 'var(--border-md)'}`,
+    background: '#0D1009',
+    border: `1px solid ${touched && !valid ? '#FF7A7A' : 'rgba(255,255,255,0.12)'}`,
     borderRadius: 10, padding: '8px 12px',
     transition: 'border-color 0.18s ease',
   })
@@ -846,15 +771,15 @@ function LeadForm({ onSubmit, isDark }) {
         display: 'flex', flexDirection: 'column', gap: 8,
         padding: 14, borderRadius: '18px 18px 18px 4px',
         background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,26,8,0.04)',
-        border: '1px solid var(--border)',
+        border: '1px solid rgba(255,255,255,0.07)',
         maxWidth: '92%',
       }}
     >
-      <div style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 4 }}>
+      <div style={{ fontSize: 13.5, color: '#FFFFFF', lineHeight: 1.5, marginBottom: 4 }}>
         Quick — who am I chatting with? It helps me follow up if we get cut off.
       </div>
       <div style={fieldStyle(nameValid || !touched)}>
-        <UserIcon size={14} style={{ color: 'var(--text-muted)' }} />
+        <UserIcon size={14} style={{ color: 'rgba(255,255,255,0.55)' }} />
         <input
           ref={nameRef}
           type="text"
@@ -864,12 +789,12 @@ function LeadForm({ onSubmit, isDark }) {
           aria-label="Your name"
           style={{
             flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13.5, padding: 0,
+            color: '#FFFFFF', fontFamily: 'inherit', fontSize: 13.5, padding: 0,
           }}
         />
       </div>
       <div style={fieldStyle(emailValid || !touched)}>
-        <Mail size={14} style={{ color: 'var(--text-muted)' }} />
+        <Mail size={14} style={{ color: 'rgba(255,255,255,0.55)' }} />
         <input
           type="email"
           value={email}
@@ -878,7 +803,7 @@ function LeadForm({ onSubmit, isDark }) {
           aria-label="Email"
           style={{
             flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13.5, padding: 0,
+            color: '#FFFFFF', fontFamily: 'inherit', fontSize: 13.5, padding: 0,
           }}
         />
       </div>
@@ -889,8 +814,8 @@ function LeadForm({ onSubmit, isDark }) {
         whileTap={ready ? { scale: 0.98 } : undefined}
         style={{
           marginTop: 4, padding: '9px 14px', borderRadius: 10,
-          background: ready ? 'var(--primary)' : 'var(--border)',
-          color: ready ? 'var(--primary-text)' : 'var(--text-dim)',
+          background: ready ? '#77D501' : 'rgba(255,255,255,0.07)',
+          color: ready ? '#0A0E06' : 'rgba(255,255,255,0.35)',
           fontWeight: 600, fontSize: 13, border: 'none',
           cursor: ready ? 'pointer' : 'not-allowed',
           fontFamily: 'inherit',
@@ -915,7 +840,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease }}
-        style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-muted)', padding: '4px 0' }}
+        style={{ textAlign: 'center', fontSize: 11.5, color: 'rgba(255,255,255,0.55)', padding: '4px 0' }}
       >
         ✓ {msg.content}
       </Motion.div>
@@ -930,8 +855,8 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
   const userBg = isDark ? '#FFFFFF' : '#0F1A08'
   const userColor = isDark ? '#0A0E06' : '#FFFFFF'
   const botBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,26,8,0.04)'
-  const botColor = 'var(--text-primary)'
-  const botBorder = '1px solid var(--border)'
+  const botColor = '#FFFFFF'
+  const botBorder = '1px solid rgba(255,255,255,0.07)'
 
   const onlyImages = hasAttachments && !hasText &&
     msg.attachments.every(a => a.kind === 'image' || a.kind === 'video')
@@ -1035,7 +960,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '10px 14px', borderRadius: 12,
-              background: 'var(--primary)', color: 'var(--primary-text)',
+              background: '#77D501', color: '#0A0E06',
               border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', fontWeight: 600, fontSize: 13.5,
               boxShadow: '0 6px 20px rgba(119,213,1,0.28)',
@@ -1051,7 +976,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
         {sorted.length === 0 ? (
           <div style={{
             padding: '40px 20px', textAlign: 'center',
-            color: 'var(--text-muted)', fontSize: 13,
+            color: 'rgba(255,255,255,0.55)', fontSize: 13,
           }}>
             No chats yet.
           </div>
@@ -1071,8 +996,8 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               style={{
                 position: 'relative', padding: '10px 12px', margin: '2px 0',
                 borderRadius: 12, cursor: isConfirm ? 'default' : 'pointer',
-                background: isActive ? 'var(--primary-dim)' : 'transparent',
-                border: `1px solid ${isActive ? 'var(--primary-border)' : 'transparent'}`,
+                background: isActive ? 'rgba(119,213,1,0.14)' : 'transparent',
+                border: `1px solid ${isActive ? 'rgba(119,213,1,0.24)' : 'transparent'}`,
                 transition: 'background 0.18s ease, border-color 0.18s ease',
               }}
               onClick={() => { if (!isConfirm) onSelect(chat.id) }}
@@ -1084,20 +1009,20 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       style={{
                         flex: 1, minWidth: 0,
                         fontSize: 13.5, fontWeight: 600,
-                        color: 'var(--text-primary)',
+                        color: '#FFFFFF',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}
                       title={chat.title}
                     >
                       {chat.title}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
                       {relativeTime(chat.updatedAt)}
                     </div>
                   </div>
                   <div
                     style={{
-                      fontSize: 12, color: 'var(--text-muted)', marginTop: 3,
+                      fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 3,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       paddingRight: 24,
                     }}
@@ -1113,7 +1038,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       style={{
                         position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                         width: 28, height: 28, borderRadius: 8,
-                        background: 'transparent', color: 'var(--text-dim)',
+                        background: 'transparent', color: 'rgba(255,255,255,0.35)',
                         border: 'none', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         opacity: 0, transition: 'opacity 0.15s ease, background 0.15s ease, color 0.15s ease',
@@ -1124,7 +1049,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.color = 'var(--text-dim)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.35)'
                       }}
                     >
                       <Trash2 size={14} />
@@ -1137,15 +1062,15 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                   animate={{ opacity: 1 }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
                 >
-                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>Delete this chat?</div>
+                  <div style={{ fontSize: 12.5, color: '#FFFFFF' }}>Delete this chat?</div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setConfirmId(null) }}
                       style={{
                         padding: '5px 10px', fontSize: 12, borderRadius: 8,
-                        background: 'transparent', color: 'var(--text-muted)',
-                        border: '1px solid var(--border)', cursor: 'pointer',
+                        background: 'transparent', color: 'rgba(255,255,255,0.55)',
+                        border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer',
                         fontFamily: 'inherit',
                       }}
                     >Cancel</button>
@@ -1598,7 +1523,7 @@ export default function Chatbot({
     }
   }
 
-  const accent = 'var(--primary)'
+  const accent = '#77D501'
   const panelBg = isDark ? '#0B0E08' : '#FFFFFF'
   const headerGradient = isDark
     ? 'linear-gradient(180deg, rgba(119,213,1,0.08) 0%, rgba(119,213,1,0) 100%)'
@@ -1611,17 +1536,11 @@ export default function Chatbot({
   const activeChatIsEmpty = !!activeChat &&
     !activeChat.messages.some(m => m.role === 'user')
 
-  // Theme tokens scoped to this wrapper — every var(--…) inside the
-  // component resolves from here, not from host CSS. The wrapper itself
-  // has zero layout footprint; the FAB and panel are position:fixed.
-  const themeStyle = (theme === 'light' ? ZARA_THEME_VARS.light : ZARA_THEME_VARS.dark)
-
   return (
     <div
       data-zara-root
       data-zara-theme={theme === 'light' ? 'light' : 'dark'}
       style={{
-        ...themeStyle,
         // Use the Inter system stack — matches the website's brand,
         // gracefully falls back where Inter isn't loaded.
         fontFamily:
@@ -1644,7 +1563,7 @@ export default function Chatbot({
             style={{
               position: 'fixed', right: 24, bottom: 24, zIndex: 9998,
               width: 58, height: 58, borderRadius: '50%',
-              background: accent, color: 'var(--primary-text)',
+              background: accent, color: '#0A0E06',
               border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 10px 32px rgba(119,213,1,0.45), 0 2px 6px rgba(0,0,0,0.3)',
@@ -1668,7 +1587,7 @@ export default function Chatbot({
                 style={{
                   position: 'absolute', top: 4, right: 4,
                   width: 12, height: 12, borderRadius: '50%',
-                  background: '#FF5C5C', border: '2px solid var(--primary)',
+                  background: '#FF5C5C', border: '2px solid #77D501',
                 }}
               />
             )}
@@ -1698,7 +1617,7 @@ export default function Chatbot({
               width: 380, maxWidth: 'calc(100vw - 32px)',
               height: 580, maxHeight: 'calc(100vh - 48px)',
               background: panelBg, borderRadius: 20,
-              border: '1px solid var(--border-md)',
+              border: '1px solid rgba(255,255,255,0.12)',
               boxShadow: isDark
                 ? '0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(119,213,1,0.06)'
                 : '0 24px 80px rgba(0,0,0,0.18)',
@@ -1716,7 +1635,7 @@ export default function Chatbot({
                   transition={{ duration: 0.18 }}
                   style={{
                     position: 'absolute', inset: 8, borderRadius: 14,
-                    border: '2px dashed var(--primary)',
+                    border: '2px dashed #77D501',
                     background: isDark ? 'rgba(119,213,1,0.07)' : 'rgba(95,170,0,0.08)',
                     backdropFilter: 'blur(6px)', zIndex: 5,
                     display: 'flex', flexDirection: 'column',
@@ -1729,15 +1648,15 @@ export default function Chatbot({
                     transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
                     style={{
                       width: 46, height: 46, borderRadius: 14,
-                      background: 'var(--primary-dim)', color: 'var(--primary)',
+                      background: 'rgba(119,213,1,0.14)', color: '#77D501',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      border: '1px solid var(--primary-border)',
+                      border: '1px solid rgba(119,213,1,0.24)',
                     }}
                   >
                     <UploadCloud size={22} />
                   </Motion.div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Drop to attach</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Images, video, audio, or documents</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>Drop to attach</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>Images, video, audio, or documents</div>
                 </Motion.div>
               )}
             </AnimatePresence>
@@ -1746,7 +1665,7 @@ export default function Chatbot({
             <div
               style={{
                 position: 'relative', padding: '14px 14px 12px',
-                borderBottom: '1px solid var(--border)', background: headerGradient,
+                borderBottom: '1px solid rgba(255,255,255,0.07)', background: headerGradient,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1756,21 +1675,21 @@ export default function Chatbot({
                     aria-label="View all chats"
                     style={{
                       width: 34, height: 34, borderRadius: 10,
-                      background: 'transparent', border: '1px solid var(--border)',
-                      color: 'var(--text-muted)', cursor: 'pointer',
+                      background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                      color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
                       transition: 'all 0.18s ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'var(--primary-dim)'
-                      e.currentTarget.style.color = 'var(--primary)'
-                      e.currentTarget.style.borderColor = 'var(--primary-border)'
+                      e.currentTarget.style.background = 'rgba(119,213,1,0.14)'
+                      e.currentTarget.style.color = '#77D501'
+                      e.currentTarget.style.borderColor = 'rgba(119,213,1,0.24)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = 'var(--text-muted)'
-                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
                     }}
                   >
                     <MessagesSquare size={15} />
@@ -1781,21 +1700,21 @@ export default function Chatbot({
                     aria-label="Back to chat"
                     style={{
                       width: 34, height: 34, borderRadius: 10,
-                      background: 'transparent', border: '1px solid var(--border)',
-                      color: 'var(--text-muted)', cursor: 'pointer',
+                      background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                      color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
                       transition: 'all 0.18s ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'var(--primary-dim)'
-                      e.currentTarget.style.color = 'var(--primary)'
-                      e.currentTarget.style.borderColor = 'var(--primary-border)'
+                      e.currentTarget.style.background = 'rgba(119,213,1,0.14)'
+                      e.currentTarget.style.color = '#77D501'
+                      e.currentTarget.style.borderColor = 'rgba(119,213,1,0.24)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = 'var(--text-muted)'
-                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
                     }}
                   >
                     <ArrowLeft size={15} />
@@ -1809,7 +1728,7 @@ export default function Chatbot({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)',
+                          fontSize: 14.5, fontWeight: 700, color: '#FFFFFF',
                           letterSpacing: '-0.01em',
                         }}
                       >
@@ -1817,7 +1736,7 @@ export default function Chatbot({
                       </div>
                       <div
                         style={{
-                          fontSize: 12, color: 'var(--text-muted)', marginTop: 1,
+                          fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}
                       >
@@ -1829,10 +1748,10 @@ export default function Chatbot({
                   </>
                 ) : (
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: '#FFFFFF' }}>
                       Your chats
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>
                       {chats.length} {chats.length === 1 ? 'conversation' : 'conversations'}
                     </div>
                   </div>
@@ -1845,20 +1764,20 @@ export default function Chatbot({
                     title="New chat"
                     style={{
                       width: 32, height: 32, borderRadius: 10,
-                      background: 'transparent', border: '1px solid var(--border)',
-                      color: 'var(--text-muted)', cursor: 'pointer',
+                      background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                      color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.18s ease',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'var(--primary-dim)'
-                      e.currentTarget.style.color = 'var(--primary)'
-                      e.currentTarget.style.borderColor = 'var(--primary-border)'
+                      e.currentTarget.style.background = 'rgba(119,213,1,0.14)'
+                      e.currentTarget.style.color = '#77D501'
+                      e.currentTarget.style.borderColor = 'rgba(119,213,1,0.24)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = 'var(--text-muted)'
-                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
                     }}
                   >
                     <Plus size={15} />
@@ -1869,20 +1788,20 @@ export default function Chatbot({
                   aria-label="Close chat"
                   style={{
                     width: 32, height: 32, borderRadius: 10,
-                    background: 'transparent', border: '1px solid var(--border)',
-                    color: 'var(--text-muted)', cursor: 'pointer',
+                    background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                    color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'all 0.18s ease',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = 'var(--primary-dim)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                    e.currentTarget.style.borderColor = 'var(--primary-border)'
+                    e.currentTarget.style.background = 'rgba(119,213,1,0.14)'
+                    e.currentTarget.style.color = '#FFFFFF'
+                    e.currentTarget.style.borderColor = 'rgba(119,213,1,0.24)'
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = 'var(--text-muted)'
-                    e.currentTarget.style.borderColor = 'var(--border)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
                   }}
                 >
                   <X size={16} />
@@ -1965,7 +1884,7 @@ export default function Chatbot({
                           style={{
                             padding: '10px 14px', borderRadius: '18px 18px 18px 4px',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,26,8,0.04)',
-                            border: '1px solid var(--border)',
+                            border: '1px solid rgba(255,255,255,0.07)',
                           }}
                         >
                           <TypingDots />
@@ -1991,8 +1910,8 @@ export default function Chatbot({
                             onClick={() => send(s)}
                             style={{
                               padding: '7px 12px', borderRadius: 999,
-                              background: 'var(--primary-dim)', color: 'var(--primary)',
-                              border: '1px solid var(--primary-border)',
+                              background: 'rgba(119,213,1,0.14)', color: '#77D501',
+                              border: '1px solid rgba(119,213,1,0.24)',
                               fontSize: 12.5, fontWeight: 500,
                               cursor: 'pointer', fontFamily: 'inherit',
                               transition: 'background 0.2s ease, border-color 0.2s ease',
@@ -2010,7 +1929,7 @@ export default function Chatbot({
                     onSubmit={onSubmit}
                     style={{
                       padding: '12px 14px 14px',
-                      borderTop: '1px solid var(--border)',
+                      borderTop: '1px solid rgba(255,255,255,0.07)',
                       background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.015)',
                     }}
                   >
@@ -2040,16 +1959,16 @@ export default function Chatbot({
                     <div
                       style={{
                         display: 'flex', alignItems: 'center', gap: 4,
-                        background: 'var(--bg-card)', border: '1px solid var(--border-md)',
+                        background: '#0D1009', border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 14, padding: '6px',
                         transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                       }}
                       onFocus={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--primary-border)'
-                        e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-dim)'
+                        e.currentTarget.style.borderColor = 'rgba(119,213,1,0.24)'
+                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(119,213,1,0.14)'
                       }}
                       onBlur={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border-md)'
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
                         e.currentTarget.style.boxShadow = 'none'
                       }}
                     >
@@ -2062,7 +1981,7 @@ export default function Chatbot({
                         disabled={pendingAttachments.length >= MAX_ATTACHMENTS}
                         style={{
                           width: 34, height: 34, borderRadius: 10,
-                          background: 'transparent', color: 'var(--text-muted)',
+                          background: 'transparent', color: 'rgba(255,255,255,0.55)',
                           border: 'none',
                           cursor: pendingAttachments.length >= MAX_ATTACHMENTS ? 'not-allowed' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2072,12 +1991,12 @@ export default function Chatbot({
                         }}
                         onMouseEnter={(e) => {
                           if (pendingAttachments.length >= MAX_ATTACHMENTS) return
-                          e.currentTarget.style.background = 'var(--primary-dim)'
-                          e.currentTarget.style.color = 'var(--primary)'
+                          e.currentTarget.style.background = 'rgba(119,213,1,0.14)'
+                          e.currentTarget.style.color = '#77D501'
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = 'transparent'
-                          e.currentTarget.style.color = 'var(--text-muted)'
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
                         }}
                       >
                         <Paperclip size={17} />
@@ -2091,7 +2010,7 @@ export default function Chatbot({
                         aria-label="Message"
                         style={{
                           flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                          color: 'var(--text-primary)', fontFamily: 'inherit',
+                          color: '#FFFFFF', fontFamily: 'inherit',
                           fontSize: 14, fontWeight: 450, padding: '8px 6px',
                         }}
                       />
@@ -2103,8 +2022,8 @@ export default function Chatbot({
                         aria-label="Send message"
                         style={{
                           width: 34, height: 34, borderRadius: 10,
-                          background: canSend ? accent : 'var(--border)',
-                          color: canSend ? 'var(--primary-text)' : 'var(--text-dim)',
+                          background: canSend ? accent : 'rgba(255,255,255,0.07)',
+                          color: canSend ? '#0A0E06' : 'rgba(255,255,255,0.35)',
                           border: 'none',
                           cursor: canSend ? 'pointer' : 'not-allowed',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2129,7 +2048,7 @@ export default function Chatbot({
 
                     <div
                       style={{
-                        fontSize: 10.5, color: 'var(--text-dim)',
+                        fontSize: 10.5, color: 'rgba(255,255,255,0.35)',
                         textAlign: 'center', marginTop: 8, letterSpacing: 0.2,
                       }}
                     >
@@ -2146,8 +2065,8 @@ export default function Chatbot({
       <style>{`
         .chatbot-scroll::-webkit-scrollbar { width: 6px; }
         .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
-        .chatbot-scroll::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 3px; }
-        .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+        .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+        .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
         .chatbot-list-row:hover .chatbot-list-trash { opacity: 1 !important; }
         /* Markdown bubble normalisation */
         .chatbot-md > *:first-child { margin-top: 0 !important; }
