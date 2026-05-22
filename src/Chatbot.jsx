@@ -1545,6 +1545,10 @@ export default function Chatbot({
         // gracefully falls back where Inter isn't loaded.
         fontFamily:
           "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+        // Reset text-align so hosts like prompt-store (which sets
+        // `.App { text-align: center }`) can't drag the chat bubbles
+        // and panel copy into the middle of the bubble.
+        textAlign: 'left',
       }}
     >
       {/* Floating launcher */}
