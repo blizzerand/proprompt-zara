@@ -28,6 +28,87 @@ import { resolveAgentConfig } from './zaraAgent'
 import { ZaraClient } from './zaraClient'
 import { ChatAnalytics } from './analytics'
 
+// Self-contained theme tokens. Every var(--…) reference inside this
+// component resolves from these so the chatbot looks identical regardless
+// of what the host app's CSS does (the public site has its own brand
+// tokens; the in-app dashboard doesn't — this avoids inheritance accidents).
+const ZARA_THEME_VARS = {
+  dark: {
+    '--zara-primary':           '#77D501',
+    '--zara-primary-light':     '#8FE620',
+    '--zara-primary-dim':       'rgba(119,213,1,0.14)',
+    '--zara-primary-border':    'rgba(119,213,1,0.24)',
+    '--zara-primary-text':      '#0A0E06',
+    '--zara-bg-base':           '#070A05',
+    '--zara-bg-alt':            '#0A0D07',
+    '--zara-bg-deep':           '#0B0E08',
+    '--zara-bg-card':           '#0D1009',
+    '--zara-bg-card-hover':     '#101408',
+    '--zara-border':            'rgba(255,255,255,0.07)',
+    '--zara-border-md':         'rgba(255,255,255,0.12)',
+    '--zara-border-strong':     'rgba(255,255,255,0.18)',
+    '--zara-text-primary':      '#FFFFFF',
+    '--zara-text-muted':        'rgba(255,255,255,0.55)',
+    '--zara-text-dim':          'rgba(255,255,255,0.35)',
+    '--zara-text-placeholder':  'rgba(255,255,255,0.25)',
+    // Aliased to legacy names too so existing var(--bg-base) refs inside
+    // this component resolve without rewriting every style block.
+    '--primary':                '#77D501',
+    '--primary-light':          '#8FE620',
+    '--primary-dim':            'rgba(119,213,1,0.14)',
+    '--primary-border':         'rgba(119,213,1,0.24)',
+    '--primary-text':           '#0A0E06',
+    '--bg-base':                '#070A05',
+    '--bg-alt':                 '#0A0D07',
+    '--bg-deep':                '#0B0E08',
+    '--bg-card':                '#0D1009',
+    '--bg-card-hover':          '#101408',
+    '--border':                 'rgba(255,255,255,0.07)',
+    '--border-md':              'rgba(255,255,255,0.12)',
+    '--border-strong':          'rgba(255,255,255,0.18)',
+    '--text-primary':           '#FFFFFF',
+    '--text-muted':             'rgba(255,255,255,0.55)',
+    '--text-dim':               'rgba(255,255,255,0.35)',
+    '--text-placeholder':       'rgba(255,255,255,0.25)',
+  },
+  light: {
+    '--zara-primary':           '#5FAA00',
+    '--zara-primary-light':     '#77D501',
+    '--zara-primary-dim':       'rgba(95,170,0,0.10)',
+    '--zara-primary-border':    'rgba(95,170,0,0.22)',
+    '--zara-primary-text':      '#FFFFFF',
+    '--zara-bg-base':           '#FAFCF8',
+    '--zara-bg-alt':            '#F3F7EF',
+    '--zara-bg-deep':           '#EDF3E8',
+    '--zara-bg-card':           '#FFFFFF',
+    '--zara-bg-card-hover':     '#F7FAF4',
+    '--zara-border':            'rgba(0,0,0,0.07)',
+    '--zara-border-md':         'rgba(0,0,0,0.12)',
+    '--zara-border-strong':     'rgba(0,0,0,0.18)',
+    '--zara-text-primary':      '#0F1A08',
+    '--zara-text-muted':        'rgba(15,26,8,0.55)',
+    '--zara-text-dim':          'rgba(15,26,8,0.38)',
+    '--zara-text-placeholder':  'rgba(15,26,8,0.25)',
+    '--primary':                '#5FAA00',
+    '--primary-light':          '#77D501',
+    '--primary-dim':            'rgba(95,170,0,0.10)',
+    '--primary-border':         'rgba(95,170,0,0.22)',
+    '--primary-text':           '#FFFFFF',
+    '--bg-base':                '#FAFCF8',
+    '--bg-alt':                 '#F3F7EF',
+    '--bg-deep':                '#EDF3E8',
+    '--bg-card':                '#FFFFFF',
+    '--bg-card-hover':          '#F7FAF4',
+    '--border':                 'rgba(0,0,0,0.07)',
+    '--border-md':              'rgba(0,0,0,0.12)',
+    '--border-strong':          'rgba(0,0,0,0.18)',
+    '--text-primary':           '#0F1A08',
+    '--text-muted':             'rgba(15,26,8,0.55)',
+    '--text-dim':               'rgba(15,26,8,0.38)',
+    '--text-placeholder':       'rgba(15,26,8,0.25)',
+  },
+}
+
 // Zara's markdown isn't always perfectly formed — the LLM occasionally
 // backslash-escapes brackets, swaps in fullwidth characters, or inserts
 // odd spacing around link syntax. Normalise the common quirks here so
@@ -1530,8 +1611,23 @@ export default function Chatbot({
   const activeChatIsEmpty = !!activeChat &&
     !activeChat.messages.some(m => m.role === 'user')
 
+  // Theme tokens scoped to this wrapper — every var(--…) inside the
+  // component resolves from here, not from host CSS. The wrapper itself
+  // has zero layout footprint; the FAB and panel are position:fixed.
+  const themeStyle = (theme === 'light' ? ZARA_THEME_VARS.light : ZARA_THEME_VARS.dark)
+
   return (
-    <>
+    <div
+      data-zara-root
+      data-zara-theme={theme === 'light' ? 'light' : 'dark'}
+      style={{
+        ...themeStyle,
+        // Use the Inter system stack — matches the website's brand,
+        // gracefully falls back where Inter isn't loaded.
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+      }}
+    >
       {/* Floating launcher */}
       <AnimatePresence>
         {!open && (
@@ -2065,6 +2161,6 @@ export default function Chatbot({
           }
         }
       `}</style>
-    </>
+    </div>
   )
 }

@@ -7,7 +7,7 @@ export const DEFAULT_AGENT = {
   name: 'Zara',
   title: 'ProPrompt Website Support',
   welcome:
-    "Hi — I'm Zara, your guide to ProPrompt. Tell me what you're trying to fix in your business and I'll point you to the right AI employee. We've got 23+ specialists ready, and you can spin one up in a 14-day free trial — no card needed.",
+    "Hi, I'm Zara.\n\nAsk me anything, or tell me what you need help with today. I'll point you to the right AI employee.\n\nOh, and by the way, you can try any AI employee free for 14 days. No credit card needed.",
   suggestions: [
     'What are AI Employees?',
     'How does pricing work?',

@@ -33,7 +33,7 @@ var DEFAULT_AGENT = {
   id: "proprompt",
   name: "Zara",
   title: "ProPrompt Website Support",
-  welcome: "Hi \u2014 I'm Zara, your guide to ProPrompt. Tell me what you're trying to fix in your business and I'll point you to the right AI employee. We've got 23+ specialists ready, and you can spin one up in a 14-day free trial \u2014 no card needed.",
+  welcome: "Hi, I'm Zara.\n\nAsk me anything, or tell me what you need help with today. I'll point you to the right AI employee.\n\nOh, and by the way, you can try any AI employee free for 14 days. No credit card needed.",
   suggestions: [
     "What are AI Employees?",
     "How does pricing work?",
@@ -372,6 +372,82 @@ var ChatAnalytics = class {
 
 // src/Chatbot.jsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+var ZARA_THEME_VARS = {
+  dark: {
+    "--zara-primary": "#77D501",
+    "--zara-primary-light": "#8FE620",
+    "--zara-primary-dim": "rgba(119,213,1,0.14)",
+    "--zara-primary-border": "rgba(119,213,1,0.24)",
+    "--zara-primary-text": "#0A0E06",
+    "--zara-bg-base": "#070A05",
+    "--zara-bg-alt": "#0A0D07",
+    "--zara-bg-deep": "#0B0E08",
+    "--zara-bg-card": "#0D1009",
+    "--zara-bg-card-hover": "#101408",
+    "--zara-border": "rgba(255,255,255,0.07)",
+    "--zara-border-md": "rgba(255,255,255,0.12)",
+    "--zara-border-strong": "rgba(255,255,255,0.18)",
+    "--zara-text-primary": "#FFFFFF",
+    "--zara-text-muted": "rgba(255,255,255,0.55)",
+    "--zara-text-dim": "rgba(255,255,255,0.35)",
+    "--zara-text-placeholder": "rgba(255,255,255,0.25)",
+    // Aliased to legacy names too so existing var(--bg-base) refs inside
+    // this component resolve without rewriting every style block.
+    "--primary": "#77D501",
+    "--primary-light": "#8FE620",
+    "--primary-dim": "rgba(119,213,1,0.14)",
+    "--primary-border": "rgba(119,213,1,0.24)",
+    "--primary-text": "#0A0E06",
+    "--bg-base": "#070A05",
+    "--bg-alt": "#0A0D07",
+    "--bg-deep": "#0B0E08",
+    "--bg-card": "#0D1009",
+    "--bg-card-hover": "#101408",
+    "--border": "rgba(255,255,255,0.07)",
+    "--border-md": "rgba(255,255,255,0.12)",
+    "--border-strong": "rgba(255,255,255,0.18)",
+    "--text-primary": "#FFFFFF",
+    "--text-muted": "rgba(255,255,255,0.55)",
+    "--text-dim": "rgba(255,255,255,0.35)",
+    "--text-placeholder": "rgba(255,255,255,0.25)"
+  },
+  light: {
+    "--zara-primary": "#5FAA00",
+    "--zara-primary-light": "#77D501",
+    "--zara-primary-dim": "rgba(95,170,0,0.10)",
+    "--zara-primary-border": "rgba(95,170,0,0.22)",
+    "--zara-primary-text": "#FFFFFF",
+    "--zara-bg-base": "#FAFCF8",
+    "--zara-bg-alt": "#F3F7EF",
+    "--zara-bg-deep": "#EDF3E8",
+    "--zara-bg-card": "#FFFFFF",
+    "--zara-bg-card-hover": "#F7FAF4",
+    "--zara-border": "rgba(0,0,0,0.07)",
+    "--zara-border-md": "rgba(0,0,0,0.12)",
+    "--zara-border-strong": "rgba(0,0,0,0.18)",
+    "--zara-text-primary": "#0F1A08",
+    "--zara-text-muted": "rgba(15,26,8,0.55)",
+    "--zara-text-dim": "rgba(15,26,8,0.38)",
+    "--zara-text-placeholder": "rgba(15,26,8,0.25)",
+    "--primary": "#5FAA00",
+    "--primary-light": "#77D501",
+    "--primary-dim": "rgba(95,170,0,0.10)",
+    "--primary-border": "rgba(95,170,0,0.22)",
+    "--primary-text": "#FFFFFF",
+    "--bg-base": "#FAFCF8",
+    "--bg-alt": "#F3F7EF",
+    "--bg-deep": "#EDF3E8",
+    "--bg-card": "#FFFFFF",
+    "--bg-card-hover": "#F7FAF4",
+    "--border": "rgba(0,0,0,0.07)",
+    "--border-md": "rgba(0,0,0,0.12)",
+    "--border-strong": "rgba(0,0,0,0.18)",
+    "--text-primary": "#0F1A08",
+    "--text-muted": "rgba(15,26,8,0.55)",
+    "--text-dim": "rgba(15,26,8,0.38)",
+    "--text-placeholder": "rgba(15,26,8,0.25)"
+  }
+};
 function normalizeBotMarkdown(text) {
   return String(text || "").replace(/\\([[\]()])/g, "$1").replace(/[［【〔]/g, "[").replace(/[］】〕]/g, "]").replace(/（/g, "(").replace(/）/g, ")").replace(/\]\s+\(/g, "](").replace(/ /g, " ").replace(/[​-‏﻿]/g, "");
 }
@@ -1848,635 +1924,647 @@ function Chatbot({
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !typing;
   const showSuggestions = activeChat && activeChat.messages.length === 1 && !typing;
   const activeChatIsEmpty = !!activeChat && !activeChat.messages.some((m) => m.role === "user");
-  return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx(AnimatePresence, { children: !open && /* @__PURE__ */ jsxs(
-      Motion.button,
-      {
-        initial: { opacity: 0, scale: 0.6, y: 20 },
-        animate: { opacity: 1, scale: 1, y: 0 },
-        exit: { opacity: 0, scale: 0.6, y: 20 },
-        transition: { duration: 0.35, ease },
-        whileHover: { scale: 1.06, y: -2 },
-        whileTap: { scale: 0.94 },
-        onClick: () => setOpen(true),
-        "aria-label": "Open chat",
-        style: {
-          position: "fixed",
-          right: 24,
-          bottom: 24,
-          zIndex: 9998,
-          width: 58,
-          height: 58,
-          borderRadius: "50%",
-          background: accent,
-          color: "var(--primary-text)",
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 10px 32px rgba(119,213,1,0.45), 0 2px 6px rgba(0,0,0,0.3)"
-        },
-        children: [
-          /* @__PURE__ */ jsx(
-            Motion.span,
-            {
-              "aria-hidden": true,
-              animate: { scale: [1, 1.6], opacity: [0.45, 0] },
-              transition: { duration: 1.8, repeat: Infinity, ease: "easeOut" },
-              style: {
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                background: accent,
-                zIndex: -1
-              }
-            }
-          ),
-          /* @__PURE__ */ jsx(MessageCircle, { size: 24, strokeWidth: 2.2 }),
-          unread && /* @__PURE__ */ jsx(
-            Motion.span,
-            {
-              initial: { scale: 0 },
-              animate: { scale: 1 },
-              transition: { type: "spring", stiffness: 500, damping: 18 },
-              style: {
-                position: "absolute",
-                top: 4,
-                right: 4,
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                background: "#FF5C5C",
-                border: "2px solid var(--primary)"
-              }
-            }
-          )
-        ]
+  const themeStyle = theme === "light" ? ZARA_THEME_VARS.light : ZARA_THEME_VARS.dark;
+  return /* @__PURE__ */ jsxs(
+    "div",
+    {
+      "data-zara-root": true,
+      "data-zara-theme": theme === "light" ? "light" : "dark",
+      style: {
+        ...themeStyle,
+        // Use the Inter system stack — matches the website's brand,
+        // gracefully falls back where Inter isn't loaded.
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
       },
-      "fab"
-    ) }),
-    /* @__PURE__ */ jsx(AnimatePresence, { children: open && /* @__PURE__ */ jsxs(
-      Motion.div,
-      {
-        initial: { opacity: 0, y: 24, scale: 0.96 },
-        animate: { opacity: 1, y: 0, scale: 1 },
-        exit: { opacity: 0, y: 16, scale: 0.96 },
-        transition: { duration: 0.32, ease },
-        role: "dialog",
-        "aria-label": "ProPrompt chat",
-        className: "chatbot-panel",
-        onDragEnter,
-        onDragOver,
-        onDragLeave,
-        onDrop,
-        onPaste,
-        style: {
-          position: "fixed",
-          right: 24,
-          bottom: 24,
-          zIndex: 9999,
-          width: 380,
-          maxWidth: "calc(100vw - 32px)",
-          height: 580,
-          maxHeight: "calc(100vh - 48px)",
-          background: panelBg,
-          borderRadius: 20,
-          border: "1px solid var(--border-md)",
-          boxShadow: isDark ? "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(119,213,1,0.06)" : "0 24px 80px rgba(0,0,0,0.18)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          transformOrigin: "bottom right"
-        },
-        children: [
-          /* @__PURE__ */ jsx(AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ jsxs(
-            Motion.div,
-            {
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              exit: { opacity: 0 },
-              transition: { duration: 0.18 },
-              style: {
-                position: "absolute",
-                inset: 8,
-                borderRadius: 14,
-                border: "2px dashed var(--primary)",
-                background: isDark ? "rgba(119,213,1,0.07)" : "rgba(95,170,0,0.08)",
-                backdropFilter: "blur(6px)",
-                zIndex: 5,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                pointerEvents: "none"
-              },
-              children: [
-                /* @__PURE__ */ jsx(
-                  Motion.div,
-                  {
-                    animate: { y: [0, -4, 0] },
-                    transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" },
-                    style: {
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "var(--primary-dim)",
-                      color: "var(--primary)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid var(--primary-border)"
-                    },
-                    children: /* @__PURE__ */ jsx(UploadCloud, { size: 22 })
+      children: [
+        /* @__PURE__ */ jsx(AnimatePresence, { children: !open && /* @__PURE__ */ jsxs(
+          Motion.button,
+          {
+            initial: { opacity: 0, scale: 0.6, y: 20 },
+            animate: { opacity: 1, scale: 1, y: 0 },
+            exit: { opacity: 0, scale: 0.6, y: 20 },
+            transition: { duration: 0.35, ease },
+            whileHover: { scale: 1.06, y: -2 },
+            whileTap: { scale: 0.94 },
+            onClick: () => setOpen(true),
+            "aria-label": "Open chat",
+            style: {
+              position: "fixed",
+              right: 24,
+              bottom: 24,
+              zIndex: 9998,
+              width: 58,
+              height: 58,
+              borderRadius: "50%",
+              background: accent,
+              color: "var(--primary-text)",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 10px 32px rgba(119,213,1,0.45), 0 2px 6px rgba(0,0,0,0.3)"
+            },
+            children: [
+              /* @__PURE__ */ jsx(
+                Motion.span,
+                {
+                  "aria-hidden": true,
+                  animate: { scale: [1, 1.6], opacity: [0.45, 0] },
+                  transition: { duration: 1.8, repeat: Infinity, ease: "easeOut" },
+                  style: {
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    background: accent,
+                    zIndex: -1
                   }
-                ),
-                /* @__PURE__ */ jsx("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }, children: "Drop to attach" }),
-                /* @__PURE__ */ jsx("div", { style: { fontSize: 12, color: "var(--text-muted)" }, children: "Images, video, audio, or documents" })
-              ]
-            }
-          ) }),
-          /* @__PURE__ */ jsx(
-            "div",
-            {
-              style: {
-                position: "relative",
-                padding: "14px 14px 12px",
-                borderBottom: "1px solid var(--border)",
-                background: headerGradient
-              },
-              children: /* @__PURE__ */ jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
-                view === "chat" ? /* @__PURE__ */ jsx(
-                  "button",
-                  {
-                    onClick: () => setView("list"),
-                    "aria-label": "View all chats",
-                    style: {
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      background: "transparent",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      transition: "all 0.18s ease"
-                    },
-                    onMouseEnter: (e) => {
-                      e.currentTarget.style.background = "var(--primary-dim)";
-                      e.currentTarget.style.color = "var(--primary)";
-                      e.currentTarget.style.borderColor = "var(--primary-border)";
-                    },
-                    onMouseLeave: (e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-muted)";
-                      e.currentTarget.style.borderColor = "var(--border)";
-                    },
-                    children: /* @__PURE__ */ jsx(MessagesSquare, { size: 15 })
+                }
+              ),
+              /* @__PURE__ */ jsx(MessageCircle, { size: 24, strokeWidth: 2.2 }),
+              unread && /* @__PURE__ */ jsx(
+                Motion.span,
+                {
+                  initial: { scale: 0 },
+                  animate: { scale: 1 },
+                  transition: { type: "spring", stiffness: 500, damping: 18 },
+                  style: {
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    background: "#FF5C5C",
+                    border: "2px solid var(--primary)"
                   }
-                ) : /* @__PURE__ */ jsx(
-                  "button",
-                  {
-                    onClick: () => setView("chat"),
-                    "aria-label": "Back to chat",
-                    style: {
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      background: "transparent",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      transition: "all 0.18s ease"
-                    },
-                    onMouseEnter: (e) => {
-                      e.currentTarget.style.background = "var(--primary-dim)";
-                      e.currentTarget.style.color = "var(--primary)";
-                      e.currentTarget.style.borderColor = "var(--primary-border)";
-                    },
-                    onMouseLeave: (e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-muted)";
-                      e.currentTarget.style.borderColor = "var(--border)";
-                    },
-                    children: /* @__PURE__ */ jsx(ArrowLeft, { size: 15 })
-                  }
-                ),
-                view === "chat" ? /* @__PURE__ */ jsxs(Fragment, { children: [
-                  /* @__PURE__ */ jsx(AgentAvatar, { size: 36, agent }),
-                  /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+                }
+              )
+            ]
+          },
+          "fab"
+        ) }),
+        /* @__PURE__ */ jsx(AnimatePresence, { children: open && /* @__PURE__ */ jsxs(
+          Motion.div,
+          {
+            initial: { opacity: 0, y: 24, scale: 0.96 },
+            animate: { opacity: 1, y: 0, scale: 1 },
+            exit: { opacity: 0, y: 16, scale: 0.96 },
+            transition: { duration: 0.32, ease },
+            role: "dialog",
+            "aria-label": "ProPrompt chat",
+            className: "chatbot-panel",
+            onDragEnter,
+            onDragOver,
+            onDragLeave,
+            onDrop,
+            onPaste,
+            style: {
+              position: "fixed",
+              right: 24,
+              bottom: 24,
+              zIndex: 9999,
+              width: 380,
+              maxWidth: "calc(100vw - 32px)",
+              height: 580,
+              maxHeight: "calc(100vh - 48px)",
+              background: panelBg,
+              borderRadius: 20,
+              border: "1px solid var(--border-md)",
+              boxShadow: isDark ? "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(119,213,1,0.06)" : "0 24px 80px rgba(0,0,0,0.18)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              transformOrigin: "bottom right"
+            },
+            children: [
+              /* @__PURE__ */ jsx(AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ jsxs(
+                Motion.div,
+                {
+                  initial: { opacity: 0 },
+                  animate: { opacity: 1 },
+                  exit: { opacity: 0 },
+                  transition: { duration: 0.18 },
+                  style: {
+                    position: "absolute",
+                    inset: 8,
+                    borderRadius: 14,
+                    border: "2px dashed var(--primary)",
+                    background: isDark ? "rgba(119,213,1,0.07)" : "rgba(95,170,0,0.08)",
+                    backdropFilter: "blur(6px)",
+                    zIndex: 5,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    pointerEvents: "none"
+                  },
+                  children: [
                     /* @__PURE__ */ jsx(
-                      "div",
+                      Motion.div,
                       {
+                        animate: { y: [0, -4, 0] },
+                        transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" },
                         style: {
-                          fontSize: 14.5,
-                          fontWeight: 700,
-                          color: "var(--text-primary)",
-                          letterSpacing: "-0.01em"
+                          width: 46,
+                          height: 46,
+                          borderRadius: 14,
+                          background: "var(--primary-dim)",
+                          color: "var(--primary)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid var(--primary-border)"
                         },
-                        children: agent.name
+                        children: /* @__PURE__ */ jsx(UploadCloud, { size: 22 })
+                      }
+                    ),
+                    /* @__PURE__ */ jsx("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }, children: "Drop to attach" }),
+                    /* @__PURE__ */ jsx("div", { style: { fontSize: 12, color: "var(--text-muted)" }, children: "Images, video, audio, or documents" })
+                  ]
+                }
+              ) }),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  style: {
+                    position: "relative",
+                    padding: "14px 14px 12px",
+                    borderBottom: "1px solid var(--border)",
+                    background: headerGradient
+                  },
+                  children: /* @__PURE__ */ jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+                    view === "chat" ? /* @__PURE__ */ jsx(
+                      "button",
+                      {
+                        onClick: () => setView("list"),
+                        "aria-label": "View all chats",
+                        style: {
+                          width: 34,
+                          height: 34,
+                          borderRadius: 10,
+                          background: "transparent",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-muted)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          transition: "all 0.18s ease"
+                        },
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "var(--primary-dim)";
+                          e.currentTarget.style.color = "var(--primary)";
+                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "var(--text-muted)";
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        },
+                        children: /* @__PURE__ */ jsx(MessagesSquare, { size: 15 })
+                      }
+                    ) : /* @__PURE__ */ jsx(
+                      "button",
+                      {
+                        onClick: () => setView("chat"),
+                        "aria-label": "Back to chat",
+                        style: {
+                          width: 34,
+                          height: 34,
+                          borderRadius: 10,
+                          background: "transparent",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-muted)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          transition: "all 0.18s ease"
+                        },
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "var(--primary-dim)";
+                          e.currentTarget.style.color = "var(--primary)";
+                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "var(--text-muted)";
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        },
+                        children: /* @__PURE__ */ jsx(ArrowLeft, { size: 15 })
+                      }
+                    ),
+                    view === "chat" ? /* @__PURE__ */ jsxs(Fragment, { children: [
+                      /* @__PURE__ */ jsx(AgentAvatar, { size: 36, agent }),
+                      /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+                        /* @__PURE__ */ jsx(
+                          "div",
+                          {
+                            style: {
+                              fontSize: 14.5,
+                              fontWeight: 700,
+                              color: "var(--text-primary)",
+                              letterSpacing: "-0.01em"
+                            },
+                            children: agent.name
+                          }
+                        ),
+                        /* @__PURE__ */ jsx(
+                          "div",
+                          {
+                            style: {
+                              fontSize: 12,
+                              color: "var(--text-muted)",
+                              marginTop: 1,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            },
+                            children: activeChat?.title && activeChat.title !== "New chat" ? activeChat.title : agent.title
+                          }
+                        )
+                      ] })
+                    ] }) : /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+                      /* @__PURE__ */ jsx("div", { style: { fontSize: 14.5, fontWeight: 700, color: "var(--text-primary)" }, children: "Your chats" }),
+                      /* @__PURE__ */ jsxs("div", { style: { fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }, children: [
+                        chats.length,
+                        " ",
+                        chats.length === 1 ? "conversation" : "conversations"
+                      ] })
+                    ] }),
+                    view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ jsx(
+                      "button",
+                      {
+                        onClick: newChat,
+                        "aria-label": "New chat",
+                        title: "New chat",
+                        style: {
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          background: "transparent",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-muted)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.18s ease"
+                        },
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "var(--primary-dim)";
+                          e.currentTarget.style.color = "var(--primary)";
+                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "var(--text-muted)";
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        },
+                        children: /* @__PURE__ */ jsx(Plus, { size: 15 })
                       }
                     ),
                     /* @__PURE__ */ jsx(
-                      "div",
+                      "button",
                       {
+                        onClick: () => setOpen(false),
+                        "aria-label": "Close chat",
                         style: {
-                          fontSize: 12,
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          background: "transparent",
+                          border: "1px solid var(--border)",
                           color: "var(--text-muted)",
-                          marginTop: 1,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap"
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.18s ease"
                         },
-                        children: activeChat?.title && activeChat.title !== "New chat" ? activeChat.title : agent.title
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "var(--primary-dim)";
+                          e.currentTarget.style.color = "var(--text-primary)";
+                          e.currentTarget.style.borderColor = "var(--primary-border)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "var(--text-muted)";
+                          e.currentTarget.style.borderColor = "var(--border)";
+                        },
+                        children: /* @__PURE__ */ jsx(X, { size: 16 })
                       }
                     )
                   ] })
-                ] }) : /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
-                  /* @__PURE__ */ jsx("div", { style: { fontSize: 14.5, fontWeight: 700, color: "var(--text-primary)" }, children: "Your chats" }),
-                  /* @__PURE__ */ jsxs("div", { style: { fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }, children: [
-                    chats.length,
-                    " ",
-                    chats.length === 1 ? "conversation" : "conversations"
-                  ] })
-                ] }),
-                view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ jsx(
-                  "button",
-                  {
-                    onClick: newChat,
-                    "aria-label": "New chat",
-                    title: "New chat",
-                    style: {
-                      width: 32,
-                      height: 32,
-                      borderRadius: 10,
-                      background: "transparent",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "all 0.18s ease"
-                    },
-                    onMouseEnter: (e) => {
-                      e.currentTarget.style.background = "var(--primary-dim)";
-                      e.currentTarget.style.color = "var(--primary)";
-                      e.currentTarget.style.borderColor = "var(--primary-border)";
-                    },
-                    onMouseLeave: (e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-muted)";
-                      e.currentTarget.style.borderColor = "var(--border)";
-                    },
-                    children: /* @__PURE__ */ jsx(Plus, { size: 15 })
-                  }
-                ),
-                /* @__PURE__ */ jsx(
-                  "button",
-                  {
-                    onClick: () => setOpen(false),
-                    "aria-label": "Close chat",
-                    style: {
-                      width: 32,
-                      height: 32,
-                      borderRadius: 10,
-                      background: "transparent",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "all 0.18s ease"
-                    },
-                    onMouseEnter: (e) => {
-                      e.currentTarget.style.background = "var(--primary-dim)";
-                      e.currentTarget.style.color = "var(--text-primary)";
-                      e.currentTarget.style.borderColor = "var(--primary-border)";
-                    },
-                    onMouseLeave: (e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-muted)";
-                      e.currentTarget.style.borderColor = "var(--border)";
-                    },
-                    children: /* @__PURE__ */ jsx(X, { size: 16 })
-                  }
-                )
-              ] })
-            }
-          ),
-          /* @__PURE__ */ jsx(AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ jsx(
-            ChatListView,
-            {
-              chats,
-              activeChatId,
-              onSelect: switchChat,
-              onNew: newChat,
-              onDelete: deleteChat,
-              isDark,
-              canCreateNew: !chats.some((c) => !c.messages.some((m) => m.role === "user"))
-            },
-            "list-view"
-          ) : /* @__PURE__ */ jsxs(
-            Motion.div,
-            {
-              initial: { opacity: 0, x: 20 },
-              animate: { opacity: 1, x: 0 },
-              exit: { opacity: 0, x: 20 },
-              transition: { duration: 0.24, ease },
-              style: { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
-              children: [
-                /* @__PURE__ */ jsxs(
-                  "div",
-                  {
-                    ref: scrollRef,
-                    className: "chatbot-scroll",
-                    style: {
-                      flex: 1,
-                      overflowY: "auto",
-                      padding: "20px 18px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12
-                    },
-                    children: [
-                      activeChat?.messages.map((m) => {
-                        if (m.role === "system" && m.kind === "lead-form") {
-                          return /* @__PURE__ */ jsx(
-                            Motion.div,
-                            {
-                              initial: { opacity: 0 },
-                              animate: { opacity: 1 },
-                              transition: { duration: 0.3 },
-                              style: { display: "flex", justifyContent: "flex-start" },
-                              children: /* @__PURE__ */ jsx(LeadForm, { onSubmit: submitLead, isDark })
-                            },
-                            m.id
-                          );
-                        }
-                        return /* @__PURE__ */ jsx(
-                          MessageBubble,
-                          {
-                            msg: m,
-                            isDark,
-                            userInfo,
-                            handoffConfig,
-                            onWhatsappClick: (botMsg, destination) => analytics.whatsappClicked({
-                              chatId: activeChat?.id,
-                              conversationId: activeChat?.conversationId || null,
-                              messageId: botMsg.id,
-                              action: botMsg.action,
-                              destination
-                            })
-                          },
-                          m.id
-                        );
-                      }),
-                      typing && /* @__PURE__ */ jsx(
-                        Motion.div,
-                        {
-                          initial: { opacity: 0, y: 6 },
-                          animate: { opacity: 1, y: 0 },
-                          transition: { duration: 0.25 },
-                          style: { display: "flex", justifyContent: "flex-start" },
-                          children: /* @__PURE__ */ jsx(
-                            "div",
-                            {
-                              style: {
-                                padding: "10px 14px",
-                                borderRadius: "18px 18px 18px 4px",
-                                background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
-                                border: "1px solid var(--border)"
-                              },
-                              children: /* @__PURE__ */ jsx(TypingDots, {})
+                }
+              ),
+              /* @__PURE__ */ jsx(AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ jsx(
+                ChatListView,
+                {
+                  chats,
+                  activeChatId,
+                  onSelect: switchChat,
+                  onNew: newChat,
+                  onDelete: deleteChat,
+                  isDark,
+                  canCreateNew: !chats.some((c) => !c.messages.some((m) => m.role === "user"))
+                },
+                "list-view"
+              ) : /* @__PURE__ */ jsxs(
+                Motion.div,
+                {
+                  initial: { opacity: 0, x: 20 },
+                  animate: { opacity: 1, x: 0 },
+                  exit: { opacity: 0, x: 20 },
+                  transition: { duration: 0.24, ease },
+                  style: { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
+                  children: [
+                    /* @__PURE__ */ jsxs(
+                      "div",
+                      {
+                        ref: scrollRef,
+                        className: "chatbot-scroll",
+                        style: {
+                          flex: 1,
+                          overflowY: "auto",
+                          padding: "20px 18px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 12
+                        },
+                        children: [
+                          activeChat?.messages.map((m) => {
+                            if (m.role === "system" && m.kind === "lead-form") {
+                              return /* @__PURE__ */ jsx(
+                                Motion.div,
+                                {
+                                  initial: { opacity: 0 },
+                                  animate: { opacity: 1 },
+                                  transition: { duration: 0.3 },
+                                  style: { display: "flex", justifyContent: "flex-start" },
+                                  children: /* @__PURE__ */ jsx(LeadForm, { onSubmit: submitLead, isDark })
+                                },
+                                m.id
+                              );
                             }
-                          )
-                        }
-                      ),
-                      showSuggestions && /* @__PURE__ */ jsx(
-                        Motion.div,
-                        {
-                          initial: { opacity: 0, y: 8 },
-                          animate: { opacity: 1, y: 0 },
-                          transition: { delay: 0.15, duration: 0.4, ease },
-                          style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 },
-                          children: agent.suggestions.map((s, i) => /* @__PURE__ */ jsx(
-                            Motion.button,
+                            return /* @__PURE__ */ jsx(
+                              MessageBubble,
+                              {
+                                msg: m,
+                                isDark,
+                                userInfo,
+                                handoffConfig,
+                                onWhatsappClick: (botMsg, destination) => analytics.whatsappClicked({
+                                  chatId: activeChat?.id,
+                                  conversationId: activeChat?.conversationId || null,
+                                  messageId: botMsg.id,
+                                  action: botMsg.action,
+                                  destination
+                                })
+                              },
+                              m.id
+                            );
+                          }),
+                          typing && /* @__PURE__ */ jsx(
+                            Motion.div,
                             {
                               initial: { opacity: 0, y: 6 },
                               animate: { opacity: 1, y: 0 },
-                              transition: { delay: 0.2 + i * 0.06, duration: 0.3, ease },
-                              whileHover: { y: -1 },
-                              whileTap: { scale: 0.97 },
-                              onClick: () => send(s),
-                              style: {
-                                padding: "7px 12px",
-                                borderRadius: 999,
-                                background: "var(--primary-dim)",
-                                color: "var(--primary)",
-                                border: "1px solid var(--primary-border)",
-                                fontSize: 12.5,
-                                fontWeight: 500,
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                                transition: "background 0.2s ease, border-color 0.2s ease"
-                              },
-                              children: s
-                            },
-                            s
-                          ))
-                        }
-                      )
-                    ]
-                  }
-                ),
-                /* @__PURE__ */ jsxs(
-                  "form",
-                  {
-                    onSubmit,
-                    style: {
-                      padding: "12px 14px 14px",
-                      borderTop: "1px solid var(--border)",
-                      background: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.015)"
-                    },
-                    children: [
-                      /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ jsx(
-                        Motion.div,
-                        {
-                          layout: true,
-                          initial: { opacity: 0, height: 0 },
-                          animate: { opacity: 1, height: "auto" },
-                          exit: { opacity: 0, height: 0 },
-                          transition: { duration: 0.22, ease },
-                          style: { display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 10, overflow: "hidden" },
-                          children: /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ jsx(
-                            AttachmentTile,
-                            {
-                              att,
-                              onRemove: removePending,
-                              isDark,
-                              compact: true
-                            },
-                            att.id
-                          )) })
-                        }
-                      ) }),
-                      /* @__PURE__ */ jsxs(
-                        "div",
-                        {
-                          style: {
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            background: "var(--bg-card)",
-                            border: "1px solid var(--border-md)",
-                            borderRadius: 14,
-                            padding: "6px",
-                            transition: "border-color 0.2s ease, box-shadow 0.2s ease"
-                          },
-                          onFocus: (e) => {
-                            e.currentTarget.style.borderColor = "var(--primary-border)";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px var(--primary-dim)";
-                          },
-                          onBlur: (e) => {
-                            e.currentTarget.style.borderColor = "var(--border-md)";
-                            e.currentTarget.style.boxShadow = "none";
-                          },
-                          children: [
-                            /* @__PURE__ */ jsx(
-                              Motion.button,
-                              {
-                                type: "button",
-                                onClick: () => fileInputRef.current?.click(),
-                                whileHover: { scale: 1.06 },
-                                whileTap: { scale: 0.92 },
-                                "aria-label": "Attach files",
-                                disabled: pendingAttachments.length >= MAX_ATTACHMENTS,
-                                style: {
-                                  width: 34,
-                                  height: 34,
-                                  borderRadius: 10,
-                                  background: "transparent",
-                                  color: "var(--text-muted)",
-                                  border: "none",
-                                  cursor: pendingAttachments.length >= MAX_ATTACHMENTS ? "not-allowed" : "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                  opacity: pendingAttachments.length >= MAX_ATTACHMENTS ? 0.4 : 1,
-                                  transition: "background 0.15s ease, color 0.15s ease"
-                                },
-                                onMouseEnter: (e) => {
-                                  if (pendingAttachments.length >= MAX_ATTACHMENTS) return;
-                                  e.currentTarget.style.background = "var(--primary-dim)";
-                                  e.currentTarget.style.color = "var(--primary)";
-                                },
-                                onMouseLeave: (e) => {
-                                  e.currentTarget.style.background = "transparent";
-                                  e.currentTarget.style.color = "var(--text-muted)";
-                                },
-                                children: /* @__PURE__ */ jsx(Paperclip, { size: 17 })
-                              }
-                            ),
-                            /* @__PURE__ */ jsx(
-                              "input",
-                              {
-                                ref: inputRef,
-                                type: "text",
-                                value: input,
-                                onChange: (e) => setInput(e.target.value),
-                                placeholder: "Type a message\u2026",
-                                "aria-label": "Message",
-                                style: {
-                                  flex: 1,
-                                  background: "transparent",
-                                  border: "none",
-                                  outline: "none",
-                                  color: "var(--text-primary)",
-                                  fontFamily: "inherit",
-                                  fontSize: 14,
-                                  fontWeight: 450,
-                                  padding: "8px 6px"
+                              transition: { duration: 0.25 },
+                              style: { display: "flex", justifyContent: "flex-start" },
+                              children: /* @__PURE__ */ jsx(
+                                "div",
+                                {
+                                  style: {
+                                    padding: "10px 14px",
+                                    borderRadius: "18px 18px 18px 4px",
+                                    background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
+                                    border: "1px solid var(--border)"
+                                  },
+                                  children: /* @__PURE__ */ jsx(TypingDots, {})
                                 }
-                              }
-                            ),
-                            /* @__PURE__ */ jsx(
-                              Motion.button,
-                              {
-                                type: "submit",
-                                disabled: !canSend,
-                                whileHover: canSend ? { scale: 1.05 } : void 0,
-                                whileTap: canSend ? { scale: 0.92 } : void 0,
-                                "aria-label": "Send message",
-                                style: {
-                                  width: 34,
-                                  height: 34,
-                                  borderRadius: 10,
-                                  background: canSend ? accent : "var(--border)",
-                                  color: canSend ? "var(--primary-text)" : "var(--text-dim)",
-                                  border: "none",
-                                  cursor: canSend ? "pointer" : "not-allowed",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                  transition: "background 0.2s ease, color 0.2s ease"
+                              )
+                            }
+                          ),
+                          showSuggestions && /* @__PURE__ */ jsx(
+                            Motion.div,
+                            {
+                              initial: { opacity: 0, y: 8 },
+                              animate: { opacity: 1, y: 0 },
+                              transition: { delay: 0.15, duration: 0.4, ease },
+                              style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 },
+                              children: agent.suggestions.map((s, i) => /* @__PURE__ */ jsx(
+                                Motion.button,
+                                {
+                                  initial: { opacity: 0, y: 6 },
+                                  animate: { opacity: 1, y: 0 },
+                                  transition: { delay: 0.2 + i * 0.06, duration: 0.3, ease },
+                                  whileHover: { y: -1 },
+                                  whileTap: { scale: 0.97 },
+                                  onClick: () => send(s),
+                                  style: {
+                                    padding: "7px 12px",
+                                    borderRadius: 999,
+                                    background: "var(--primary-dim)",
+                                    color: "var(--primary)",
+                                    border: "1px solid var(--primary-border)",
+                                    fontSize: 12.5,
+                                    fontWeight: 500,
+                                    cursor: "pointer",
+                                    fontFamily: "inherit",
+                                    transition: "background 0.2s ease, border-color 0.2s ease"
+                                  },
+                                  children: s
                                 },
-                                children: /* @__PURE__ */ jsx(ArrowUp, { size: 16, strokeWidth: 2.6 })
-                              }
-                            )
-                          ]
-                        }
-                      ),
-                      /* @__PURE__ */ jsx(
-                        "input",
-                        {
-                          ref: fileInputRef,
-                          type: "file",
-                          multiple: true,
-                          onChange: (e) => {
-                            addFiles(e.target.files);
-                            e.target.value = "";
-                          },
-                          style: { display: "none" },
-                          "aria-hidden": "true"
-                        }
-                      ),
-                      /* @__PURE__ */ jsx(
-                        "div",
-                        {
-                          style: {
-                            fontSize: 10.5,
-                            color: "var(--text-dim)",
-                            textAlign: "center",
-                            marginTop: 8,
-                            letterSpacing: 0.2
-                          },
-                          children: "Powered by ProPrompt \xB7 drag, paste or attach files \xB7 Esc to close"
-                        }
-                      )
-                    ]
-                  }
-                )
-              ]
-            },
-            "chat-view"
-          ) })
-        ]
-      },
-      "panel"
-    ) }),
-    /* @__PURE__ */ jsx("style", { children: `
+                                s
+                              ))
+                            }
+                          )
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxs(
+                      "form",
+                      {
+                        onSubmit,
+                        style: {
+                          padding: "12px 14px 14px",
+                          borderTop: "1px solid var(--border)",
+                          background: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.015)"
+                        },
+                        children: [
+                          /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ jsx(
+                            Motion.div,
+                            {
+                              layout: true,
+                              initial: { opacity: 0, height: 0 },
+                              animate: { opacity: 1, height: "auto" },
+                              exit: { opacity: 0, height: 0 },
+                              transition: { duration: 0.22, ease },
+                              style: { display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 10, overflow: "hidden" },
+                              children: /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ jsx(
+                                AttachmentTile,
+                                {
+                                  att,
+                                  onRemove: removePending,
+                                  isDark,
+                                  compact: true
+                                },
+                                att.id
+                              )) })
+                            }
+                          ) }),
+                          /* @__PURE__ */ jsxs(
+                            "div",
+                            {
+                              style: {
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                background: "var(--bg-card)",
+                                border: "1px solid var(--border-md)",
+                                borderRadius: 14,
+                                padding: "6px",
+                                transition: "border-color 0.2s ease, box-shadow 0.2s ease"
+                              },
+                              onFocus: (e) => {
+                                e.currentTarget.style.borderColor = "var(--primary-border)";
+                                e.currentTarget.style.boxShadow = "0 0 0 3px var(--primary-dim)";
+                              },
+                              onBlur: (e) => {
+                                e.currentTarget.style.borderColor = "var(--border-md)";
+                                e.currentTarget.style.boxShadow = "none";
+                              },
+                              children: [
+                                /* @__PURE__ */ jsx(
+                                  Motion.button,
+                                  {
+                                    type: "button",
+                                    onClick: () => fileInputRef.current?.click(),
+                                    whileHover: { scale: 1.06 },
+                                    whileTap: { scale: 0.92 },
+                                    "aria-label": "Attach files",
+                                    disabled: pendingAttachments.length >= MAX_ATTACHMENTS,
+                                    style: {
+                                      width: 34,
+                                      height: 34,
+                                      borderRadius: 10,
+                                      background: "transparent",
+                                      color: "var(--text-muted)",
+                                      border: "none",
+                                      cursor: pendingAttachments.length >= MAX_ATTACHMENTS ? "not-allowed" : "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                      opacity: pendingAttachments.length >= MAX_ATTACHMENTS ? 0.4 : 1,
+                                      transition: "background 0.15s ease, color 0.15s ease"
+                                    },
+                                    onMouseEnter: (e) => {
+                                      if (pendingAttachments.length >= MAX_ATTACHMENTS) return;
+                                      e.currentTarget.style.background = "var(--primary-dim)";
+                                      e.currentTarget.style.color = "var(--primary)";
+                                    },
+                                    onMouseLeave: (e) => {
+                                      e.currentTarget.style.background = "transparent";
+                                      e.currentTarget.style.color = "var(--text-muted)";
+                                    },
+                                    children: /* @__PURE__ */ jsx(Paperclip, { size: 17 })
+                                  }
+                                ),
+                                /* @__PURE__ */ jsx(
+                                  "input",
+                                  {
+                                    ref: inputRef,
+                                    type: "text",
+                                    value: input,
+                                    onChange: (e) => setInput(e.target.value),
+                                    placeholder: "Type a message\u2026",
+                                    "aria-label": "Message",
+                                    style: {
+                                      flex: 1,
+                                      background: "transparent",
+                                      border: "none",
+                                      outline: "none",
+                                      color: "var(--text-primary)",
+                                      fontFamily: "inherit",
+                                      fontSize: 14,
+                                      fontWeight: 450,
+                                      padding: "8px 6px"
+                                    }
+                                  }
+                                ),
+                                /* @__PURE__ */ jsx(
+                                  Motion.button,
+                                  {
+                                    type: "submit",
+                                    disabled: !canSend,
+                                    whileHover: canSend ? { scale: 1.05 } : void 0,
+                                    whileTap: canSend ? { scale: 0.92 } : void 0,
+                                    "aria-label": "Send message",
+                                    style: {
+                                      width: 34,
+                                      height: 34,
+                                      borderRadius: 10,
+                                      background: canSend ? accent : "var(--border)",
+                                      color: canSend ? "var(--primary-text)" : "var(--text-dim)",
+                                      border: "none",
+                                      cursor: canSend ? "pointer" : "not-allowed",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                      transition: "background 0.2s ease, color 0.2s ease"
+                                    },
+                                    children: /* @__PURE__ */ jsx(ArrowUp, { size: 16, strokeWidth: 2.6 })
+                                  }
+                                )
+                              ]
+                            }
+                          ),
+                          /* @__PURE__ */ jsx(
+                            "input",
+                            {
+                              ref: fileInputRef,
+                              type: "file",
+                              multiple: true,
+                              onChange: (e) => {
+                                addFiles(e.target.files);
+                                e.target.value = "";
+                              },
+                              style: { display: "none" },
+                              "aria-hidden": "true"
+                            }
+                          ),
+                          /* @__PURE__ */ jsx(
+                            "div",
+                            {
+                              style: {
+                                fontSize: 10.5,
+                                color: "var(--text-dim)",
+                                textAlign: "center",
+                                marginTop: 8,
+                                letterSpacing: 0.2
+                              },
+                              children: "Powered by ProPrompt \xB7 drag, paste or attach files \xB7 Esc to close"
+                            }
+                          )
+                        ]
+                      }
+                    )
+                  ]
+                },
+                "chat-view"
+              ) })
+            ]
+          },
+          "panel"
+        ) }),
+        /* @__PURE__ */ jsx("style", { children: `
         .chatbot-scroll::-webkit-scrollbar { width: 6px; }
         .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
         .chatbot-scroll::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 3px; }
@@ -2494,7 +2582,9 @@ function Chatbot({
           }
         }
       ` })
-  ] });
+      ]
+    }
+  );
 }
 export {
   ChatAnalytics,
