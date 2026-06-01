@@ -1980,7 +1980,7 @@ function Chatbot({
               setOpen(true);
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 36, agent }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 48, agent }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "span",

@@ -1975,7 +1975,7 @@ function Chatbot({
               setOpen(true);
             },
             children: [
-              /* @__PURE__ */ jsx(AgentAvatar, { size: 36, agent }),
+              /* @__PURE__ */ jsx(AgentAvatar, { size: 48, agent }),
               /* @__PURE__ */ jsx("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
               /* @__PURE__ */ jsx(
                 "span",

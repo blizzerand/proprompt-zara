@@ -1659,7 +1659,7 @@ export default function Chatbot({
               setOpen(true)
             }}
           >
-            <AgentAvatar size={36} agent={agent} />
+            <AgentAvatar size={48} agent={agent} />
             <span style={{ flex: 1 }}>Hi, I'm Zara. Need help? Let's chat.</span>
             {/* Speech-bubble tail pointing at the FAB on the right. */}
             <span
