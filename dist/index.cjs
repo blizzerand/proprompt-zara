@@ -436,6 +436,7 @@ var MAX_ATTACHMENTS = 4;
 var STORAGE_KEY_CHATS = "pp_chatbot_chats_v1";
 var STORAGE_KEY_ACTIVE = "pp_chatbot_active_v1";
 var STORAGE_KEY_USER = "pp_chatbot_user_v1";
+var STORAGE_KEY_HELPER_SEEN = "pp_chatbot_helper_seen_v1";
 var attachmentSeq = 0;
 var newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`;
 var newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1551,6 +1552,9 @@ function Chatbot({
   const [typing, setTyping] = (0, import_react.useState)(false);
   const [unread, setUnread] = (0, import_react.useState)(false);
   const [dragOver, setDragOver] = (0, import_react.useState)(false);
+  const [helperVisible, setHelperVisible] = (0, import_react.useState)(
+    () => !safeStorageGet(STORAGE_KEY_HELPER_SEEN, false)
+  );
   const scrollRef = (0, import_react.useRef)(null);
   const inputRef = (0, import_react.useRef)(null);
   const fileInputRef = (0, import_react.useRef)(null);
@@ -1605,6 +1609,20 @@ function Chatbot({
   (0, import_react.useEffect)(() => {
     if (userInfo) safeStorageSet(STORAGE_KEY_USER, userInfo);
   }, [userInfo]);
+  (0, import_react.useEffect)(() => {
+    if (open && helperVisible) {
+      setHelperVisible(false);
+      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
+    }
+  }, [open, helperVisible]);
+  (0, import_react.useEffect)(() => {
+    if (!helperVisible) return void 0;
+    const t = window.setTimeout(() => {
+      setHelperVisible(false);
+      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
+    }, 1e4);
+    return () => window.clearTimeout(t);
+  }, [helperVisible]);
   (0, import_react.useEffect)(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -1934,6 +1952,66 @@ function Chatbot({
             ]
           },
           "fab"
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          import_framer_motion.motion.div,
+          {
+            initial: { opacity: 0, x: 10, y: 4 },
+            animate: { opacity: 1, x: 0, y: 0 },
+            exit: { opacity: 0, x: 10, y: 4 },
+            transition: { duration: 0.32, ease },
+            role: "status",
+            "aria-live": "polite",
+            style: {
+              position: "fixed",
+              right: 96,
+              bottom: 36,
+              zIndex: 9997,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              maxWidth: "min(280px, calc(100vw - 112px))",
+              padding: "10px 14px 10px 10px",
+              borderRadius: 14,
+              border: "1px solid rgba(119,213,1,0.26)",
+              background: "rgba(7,10,5,0.92)",
+              color: "#FFFFFF",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.36), 0 0 28px rgba(119,213,1,0.12)",
+              fontSize: 14,
+              fontWeight: 600,
+              lineHeight: 1.35,
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              cursor: "pointer"
+            },
+            onClick: () => {
+              setHelperVisible(false);
+              safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
+              setOpen(true);
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 36, agent }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                "span",
+                {
+                  "aria-hidden": true,
+                  style: {
+                    position: "absolute",
+                    right: -7,
+                    top: "50%",
+                    width: 12,
+                    height: 12,
+                    transform: "translateY(-50%) rotate(45deg)",
+                    borderTop: "1px solid rgba(119,213,1,0.26)",
+                    borderRight: "1px solid rgba(119,213,1,0.26)",
+                    background: "rgba(7,10,5,0.92)"
+                  }
+                }
+              )
+            ]
+          },
+          "zara-helper"
         ) }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: open && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
           import_framer_motion.motion.div,
