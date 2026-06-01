@@ -436,7 +436,6 @@ var MAX_ATTACHMENTS = 4;
 var STORAGE_KEY_CHATS = "pp_chatbot_chats_v1";
 var STORAGE_KEY_ACTIVE = "pp_chatbot_active_v1";
 var STORAGE_KEY_USER = "pp_chatbot_user_v1";
-var STORAGE_KEY_HELPER_SEEN = "pp_chatbot_helper_seen_v1";
 var attachmentSeq = 0;
 var newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`;
 var newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1552,9 +1551,7 @@ function Chatbot({
   const [typing, setTyping] = (0, import_react.useState)(false);
   const [unread, setUnread] = (0, import_react.useState)(false);
   const [dragOver, setDragOver] = (0, import_react.useState)(false);
-  const [helperVisible, setHelperVisible] = (0, import_react.useState)(
-    () => !safeStorageGet(STORAGE_KEY_HELPER_SEEN, false)
-  );
+  const [helperVisible, setHelperVisible] = (0, import_react.useState)(true);
   const scrollRef = (0, import_react.useRef)(null);
   const inputRef = (0, import_react.useRef)(null);
   const fileInputRef = (0, import_react.useRef)(null);
@@ -1610,17 +1607,11 @@ function Chatbot({
     if (userInfo) safeStorageSet(STORAGE_KEY_USER, userInfo);
   }, [userInfo]);
   (0, import_react.useEffect)(() => {
-    if (open && helperVisible) {
-      setHelperVisible(false);
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
-    }
+    if (open && helperVisible) setHelperVisible(false);
   }, [open, helperVisible]);
   (0, import_react.useEffect)(() => {
     if (!helperVisible) return void 0;
-    const t = window.setTimeout(() => {
-      setHelperVisible(false);
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
-    }, 1e4);
+    const t = window.setTimeout(() => setHelperVisible(false), 1e4);
     return () => window.clearTimeout(t);
   }, [helperVisible]);
   (0, import_react.useEffect)(() => {
@@ -1986,7 +1977,6 @@ function Chatbot({
             },
             onClick: () => {
               setHelperVisible(false);
-              safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
               setOpen(true);
             },
             children: [

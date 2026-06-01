@@ -431,7 +431,6 @@ var MAX_ATTACHMENTS = 4;
 var STORAGE_KEY_CHATS = "pp_chatbot_chats_v1";
 var STORAGE_KEY_ACTIVE = "pp_chatbot_active_v1";
 var STORAGE_KEY_USER = "pp_chatbot_user_v1";
-var STORAGE_KEY_HELPER_SEEN = "pp_chatbot_helper_seen_v1";
 var attachmentSeq = 0;
 var newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`;
 var newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1547,9 +1546,7 @@ function Chatbot({
   const [typing, setTyping] = useState(false);
   const [unread, setUnread] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [helperVisible, setHelperVisible] = useState(
-    () => !safeStorageGet(STORAGE_KEY_HELPER_SEEN, false)
-  );
+  const [helperVisible, setHelperVisible] = useState(true);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -1605,17 +1602,11 @@ function Chatbot({
     if (userInfo) safeStorageSet(STORAGE_KEY_USER, userInfo);
   }, [userInfo]);
   useEffect(() => {
-    if (open && helperVisible) {
-      setHelperVisible(false);
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
-    }
+    if (open && helperVisible) setHelperVisible(false);
   }, [open, helperVisible]);
   useEffect(() => {
     if (!helperVisible) return void 0;
-    const t = window.setTimeout(() => {
-      setHelperVisible(false);
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
-    }, 1e4);
+    const t = window.setTimeout(() => setHelperVisible(false), 1e4);
     return () => window.clearTimeout(t);
   }, [helperVisible]);
   useEffect(() => {
@@ -1981,7 +1972,6 @@ function Chatbot({
             },
             onClick: () => {
               setHelperVisible(false);
-              safeStorageSet(STORAGE_KEY_HELPER_SEEN, true);
               setOpen(true);
             },
             children: [

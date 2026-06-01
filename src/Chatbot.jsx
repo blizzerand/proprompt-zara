@@ -134,10 +134,6 @@ const MAX_ATTACHMENTS = 4
 const STORAGE_KEY_CHATS = 'pp_chatbot_chats_v1'
 const STORAGE_KEY_ACTIVE = 'pp_chatbot_active_v1'
 const STORAGE_KEY_USER = 'pp_chatbot_user_v1'
-// Sticky once the user has either dismissed the helper bubble (auto or
-// manual) or opened the chat — we don't want the "Hi, I'm Zara" nudge
-// to keep popping up on every page navigation.
-const STORAGE_KEY_HELPER_SEEN = 'pp_chatbot_helper_seen_v1'
 
 let attachmentSeq = 0
 const newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`
@@ -1195,12 +1191,11 @@ export default function Chatbot({
   const [typing, setTyping] = useState(false)
   const [unread, setUnread] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  // "Hi, I'm Zara" first-visit nudge. Shows next to the FAB on first load
-  // for ~10s; auto-hides + persists "seen" so it never reappears for this
-  // visitor. Opening the chat or dismissing also sets the seen flag.
-  const [helperVisible, setHelperVisible] = useState(
-    () => !safeStorageGet(STORAGE_KEY_HELPER_SEEN, false)
-  )
+  // "Hi, I'm Zara" greeting next to the FAB. Shows on every page load
+  // for ~10s, then auto-hides for this session. Also hides immediately
+  // when the user opens the chat. No persistence — fresh nudge each
+  // time the page reloads.
+  const [helperVisible, setHelperVisible] = useState(true)
 
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
@@ -1269,21 +1264,15 @@ export default function Chatbot({
   }, [userInfo])
 
   // Hide the helper bubble the moment the chat is opened — even if the
-  // user opens before the 10s timer fires — and remember the dismissal.
+  // user opens before the 10s auto-hide timer fires.
   useEffect(() => {
-    if (open && helperVisible) {
-      setHelperVisible(false)
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true)
-    }
+    if (open && helperVisible) setHelperVisible(false)
   }, [open, helperVisible])
 
-  // Auto-hide the helper bubble 10s after first paint, then persist.
+  // Auto-hide the helper bubble 10s after first paint.
   useEffect(() => {
     if (!helperVisible) return undefined
-    const t = window.setTimeout(() => {
-      setHelperVisible(false)
-      safeStorageSet(STORAGE_KEY_HELPER_SEEN, true)
-    }, 10000)
+    const t = window.setTimeout(() => setHelperVisible(false), 10000)
     return () => window.clearTimeout(t)
   }, [helperVisible])
 
@@ -1664,10 +1653,9 @@ export default function Chatbot({
               cursor: 'pointer',
             }}
             onClick={() => {
-              // Tapping the bubble itself opens the chat — saves the user
-              // a second move toward the FAB.
+              // Tapping the bubble itself opens the chat — saves the
+              // user a second move toward the FAB.
               setHelperVisible(false)
-              safeStorageSet(STORAGE_KEY_HELPER_SEEN, true)
               setOpen(true)
             }}
           >
