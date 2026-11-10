@@ -150,6 +150,17 @@ function lastMessagePreview(chat) {
   return ''
 }
 
+// A reply as one short line for the bubble beside the chat button.
+function replyPreviewText(text, max = 110) {
+  const plain = String(text || '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/(\*\*|__|`)/g, '')
+    .replace(/^\s*([-*•]|\d+[.)]|#{1,6})\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return plain.length > max ? `${plain.slice(0, max - 1).trimEnd()}…` : plain
+}
+
 // What Zara needs when a person hands a chat back: the turns since they took
 // over, as a note in front of the visitor's next message (Zara's own
 // conversation never saw them).
@@ -1144,6 +1155,9 @@ export default function Chatbot({
   const [pendingAttachments, setPendingAttachments] = useState([])
   const [typing, setTyping] = useState(false)
   const [unread, setUnread] = useState(false)
+  // Replies that arrived while the chat was closed, for the bubble beside
+  // the chat button: { count, author, content, isTeam, joined }.
+  const [unreadPreview, setUnreadPreview] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   // "Hi, I'm Zara" greeting next to the FAB. Shows on every page load
   // for ~10s, then auto-hides for this session. Also hides immediately
@@ -1230,16 +1244,22 @@ export default function Chatbot({
     return () => window.clearTimeout(t)
   }, [helperVisible])
 
-  // Auto-scroll on new messages.
+  // Auto-scroll on new messages, and to the newest message when the chat
+  // opens (replies may have arrived while it was closed).
   useEffect(() => {
-    if (!scrollRef.current) return
-    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [activeChat?.messages, typing, view])
+    if (!open || !scrollRef.current) return undefined
+    const el = scrollRef.current
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    // The panel animates in; settle at the bottom once it has.
+    const t = setTimeout(() => el.scrollTo({ top: el.scrollHeight }), 350)
+    return () => clearTimeout(t)
+  }, [open, activeChat?.messages, typing, view])
 
   // Focus input when opened or view returns to chat.
   useEffect(() => {
     if (open && view === 'chat') {
       setUnread(false)
+      setUnreadPreview(null)
       const id = setTimeout(() => inputRef.current?.focus(), 280)
       return () => clearTimeout(id)
     }
@@ -1311,6 +1331,24 @@ export default function Chatbot({
     }))
   }, [])
 
+  // Show replies that arrive while the chat is closed in the bubble beside the
+  // chat button (and as a count on it), until the visitor opens the chat.
+  const noteReplies = useCallback((replies, joinedName = null) => {
+    if (openRef.current && viewRef.current === 'chat') return
+    if (!replies.length && !joinedName) return
+    setUnread(true)
+    setUnreadPreview(prev => {
+      const latest = replies[replies.length - 1]
+      return {
+        count: (prev?.count || 0) + replies.length,
+        author: latest ? latest.author : (prev?.author || joinedName),
+        content: latest ? latest.content : (prev?.content || ''),
+        isTeam: latest ? latest.isTeam : (prev ? prev.isTeam : true),
+        joined: joinedName || prev?.joined || null,
+      }
+    })
+  }, [])
+
   const activeChatKnown = !!activeChat?.messages.some(m => m.role === 'user')
   const activeChatAssigned = !!activeChat?.assignee
   useEffect(() => {
@@ -1329,9 +1367,13 @@ export default function Chatbot({
         const updates = await analytics.fetchChatUpdates(chatId, chat.humanCursor || null)
         if (!stopped && updates) {
           const known = new Set(chat.messages.map(m => m.id))
-          const hasNew = (updates.messages || []).some(m => !known.has(m.id))
+          const fresh = (updates.messages || []).filter(m => !known.has(m.id))
+          const joinedName = !chat.assignee && updates.assignee ? updates.assignee.name : null
           applyChatUpdates(chatId, updates)
-          if (hasNew && (!openRef.current || viewRef.current !== 'chat')) setUnread(true)
+          noteReplies(
+            fresh.map(m => ({ author: m.author_name, content: m.content, isTeam: true })),
+            joinedName
+          )
         }
       }
       if (!stopped) timer = setTimeout(tick, open ? POLL_OPEN_MS : POLL_CLOSED_MS)
@@ -1345,7 +1387,7 @@ export default function Chatbot({
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates])
+  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates, noteReplies])
 
   // The "you have a reply" email links back with ?zara=open&chat=<id>: open
   // that chat (when it is in this browser), then tidy the address bar.
@@ -1505,6 +1547,7 @@ export default function Chatbot({
           conversationId: result.conversationId || c.conversationId,
           messages: [...c.messages, botMsg],
         }))
+        noteReplies([{ author: 'Zara', content: botMsg.content, isTeam: false }])
         analytics.messageReceived({
           chatId,
           conversationId: newConversationId,
@@ -1532,7 +1575,7 @@ export default function Chatbot({
         updateChat(chatId, c => ({ ...c, messages: [...c.messages, botMsg] }))
       } finally {
         setTyping(false)
-        if (!open || view !== 'chat') setUnread(true)
+        if (!openRef.current || viewRef.current !== 'chat') setUnread(true)
       }
 
       if (shouldAskLead) {
@@ -1545,7 +1588,7 @@ export default function Chatbot({
         }, 700)
       }
     })()
-  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent])
+  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent, noteReplies])
 
   const submitLead = useCallback(({ name, email, company }) => {
     setUserInfo({ name, email, ...(company ? { company } : {}), savedAt: Date.now() })
@@ -1720,21 +1763,31 @@ export default function Chatbot({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                style={{
+                aria-label={unreadPreview?.count ? `${unreadPreview.count} new ${unreadPreview.count === 1 ? 'reply' : 'replies'}` : 'New activity'}
+                style={unreadPreview?.count ? {
+                  position: 'absolute', top: -2, right: -2,
+                  minWidth: 20, height: 20, padding: '0 5px', borderRadius: 10,
+                  background: '#FF5C5C', border: '2px solid #77D501', color: '#FFFFFF',
+                  fontSize: 11, fontWeight: 700, lineHeight: '16px', textAlign: 'center',
+                  boxSizing: 'border-box',
+                } : {
                   position: 'absolute', top: 4, right: 4,
                   width: 12, height: 12, borderRadius: '50%',
                   background: '#FF5C5C', border: '2px solid #77D501',
                 }}
-              />
+              >
+                {unreadPreview?.count ? (unreadPreview.count > 9 ? '9+' : unreadPreview.count) : null}
+              </Motion.span>
             )}
           </Motion.button>
         )}
       </AnimatePresence>
 
-      {/* First-visit nudge — Zara's face + a short hello next to the FAB.
-          Auto-dismisses in 10s and persists "seen" via localStorage. */}
+      {/* The bubble next to the FAB. Normally a short hello from Zara that
+          hides after 10s; while replies wait unread (the chat is closed) it
+          shows who replied and a preview instead, until the chat is opened. */}
       <AnimatePresence>
-        {!open && helperVisible && (
+        {!open && (helperVisible || unreadPreview) && (
           <Motion.div
             key="zara-helper"
             initial={{ opacity: 0, x: 10, y: 4 }}
@@ -1770,11 +1823,40 @@ export default function Chatbot({
               // Tapping the bubble itself opens the chat — saves the
               // user a second move toward the FAB.
               setHelperVisible(false)
+              setView('chat')
               setOpen(true)
             }}
           >
-            <AgentAvatar size={48} agent={agent} />
-            <span style={{ flex: 1 }}>Hi, I'm Zara. Need help? Let's chat.</span>
+            {unreadPreview ? (
+              <>
+                {unreadPreview.isTeam
+                  ? <PersonAvatar size={48} name={unreadPreview.author} />
+                  : <AgentAvatar size={48} agent={agent} />}
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span>
+                    {unreadPreview.count > 1
+                      ? `You have ${unreadPreview.count} new replies`
+                      : unreadPreview.count === 1
+                        ? (unreadPreview.isTeam ? `${unreadPreview.author} from ProPrompt replied` : 'Zara replied')
+                        : `${unreadPreview.joined} from ProPrompt joined your chat`}
+                  </span>
+                  {unreadPreview.content && (
+                    <span style={{
+                      fontSize: 13, fontWeight: 450, color: 'rgba(255,255,255,0.72)',
+                      overflow: 'hidden', display: '-webkit-box',
+                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    }}>
+                      {replyPreviewText(unreadPreview.content)}
+                    </span>
+                  )}
+                </span>
+              </>
+            ) : (
+              <>
+                <AgentAvatar size={48} agent={agent} />
+                <span style={{ flex: 1 }}>Hi, I'm Zara. Need help? Let's chat.</span>
+              </>
+            )}
             {/* Speech-bubble tail pointing at the FAB on the right. */}
             <span
               aria-hidden
