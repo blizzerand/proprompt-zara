@@ -25,7 +25,9 @@ import {
   Check,
   AlertCircle,
   Loader2,
-  Ticket
+  Ticket,
+  Building2,
+  RotateCcw
 } from "lucide-react";
 
 // src/zaraAgent.js
@@ -240,7 +242,7 @@ var ChatAnalytics = class {
     return this.sessionId;
   }
   setVisitor(info) {
-    this.visitor = info && info.email ? { name: info.name || null, email: info.email } : null;
+    this.visitor = info && info.email ? { name: info.name || null, email: info.email, ...info.company ? { company: info.company } : {} } : null;
   }
   _envelope(event, data) {
     return {
@@ -293,6 +295,32 @@ var ChatAnalytics = class {
       if (!ok) this._enqueue(payload);
     });
   }
+  // For messages a person is waiting on: send now and report whether it
+  // arrived, so the widget can show "not sent" and retry with the same
+  // payload (same event_id, so the server never stores it twice).
+  async _sendNow(event, data) {
+    const payload = this._envelope(event, data);
+    const ok = await this._transmit(payload);
+    return { ok, payload };
+  }
+  async resend(payload) {
+    return this._transmit(payload);
+  }
+  // A person's replies in a chat and who is handling it, from the backend
+  // (GET <endpoint>/chats/:chatId/updates). null when unavailable.
+  async fetchChatUpdates(chatId, after) {
+    if (!this.enabled || !chatId) return null;
+    const base = this.endpoint.replace(/\/+$/, "");
+    const params = new URLSearchParams({ visitor_id: getOrCreateVisitorId() });
+    if (after) params.set("after", after);
+    try {
+      const res = await fetch(`${base}/chats/${encodeURIComponent(chatId)}/updates?${params}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
   async flushQueue() {
     if (!this.enabled || typeof window === "undefined") return;
     let queue;
@@ -342,8 +370,24 @@ var ChatAnalytics = class {
       action: action || null
     });
   }
-  leadCaptured({ name, email }) {
-    this._send("lead_captured", { name, email });
+  leadCaptured({ name, email, company }) {
+    this._send("lead_captured", { name, email, ...company ? { company } : {} });
+  }
+  // A visitor's message while a person handles the chat: sent now, not queued.
+  messageSentNow({ chatId, conversationId, messageId, content, attachments }) {
+    if (!this.enabled) return Promise.resolve({ ok: false, payload: null });
+    return this._sendNow("message_sent", {
+      chat_id: chatId,
+      conversation_id: conversationId || null,
+      message_id: messageId,
+      content,
+      attachments: (attachments || []).map((a) => ({
+        name: a.name,
+        kind: a.kind,
+        size: a.size,
+        type: a.type || null
+      }))
+    });
   }
   ticketCreated({ chatId, conversationId, messageId, action }) {
     this._send("ticket_created", {
@@ -431,6 +475,9 @@ var MAX_ATTACHMENTS = 4;
 var STORAGE_KEY_CHATS = "pp_chatbot_chats_v1";
 var STORAGE_KEY_ACTIVE = "pp_chatbot_active_v1";
 var STORAGE_KEY_USER = "pp_chatbot_user_v1";
+var POLL_OPEN_MS = 5e3;
+var POLL_CLOSED_MS = 2e4;
+var RECENT_CHAT_MS = 2 * 60 * 60 * 1e3;
 var attachmentSeq = 0;
 var newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`;
 var newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -507,6 +554,17 @@ function lastMessagePreview(chat) {
     if (m.attachments?.length) return `\u{1F4CE} ${m.attachments.length} attachment${m.attachments.length > 1 ? "s" : ""}`;
   }
   return "";
+}
+function handbackNote(messages, personName) {
+  const lines = messages.filter((m) => (m.role === "user" || m.role === "human") && m.content).slice(-20).map((m) => {
+    const who = m.role === "user" ? "Visitor" : `${m.author || personName} (ProPrompt team)`;
+    const text = m.content.length > 500 ? `${m.content.slice(0, 500)}\u2026` : m.content;
+    return `${who}: ${text}`;
+  });
+  if (!lines.length) return null;
+  return `[Note for Zara: ${personName} from the ProPrompt team handled this chat for a while and has handed it back to you. What was said meanwhile:
+${lines.join("\n")}
+Carry on from there without repeating what was already covered.]`;
 }
 function composeUserTurn(text, attachments) {
   let out = text || "";
@@ -1059,6 +1117,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
 function LeadForm({ onSubmit, isDark }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
   const nameRef = useRef(null);
@@ -1073,7 +1132,7 @@ function LeadForm({ onSubmit, isDark }) {
     setTouched(true);
     if (!ready) return;
     setSubmitting(true);
-    setTimeout(() => onSubmit({ name: name.trim(), email: email.trim() }), 250);
+    setTimeout(() => onSubmit({ name: name.trim(), email: email.trim(), company: company.trim() || null }), 250);
   };
   const fieldStyle = (valid) => ({
     display: "flex",
@@ -1151,6 +1210,30 @@ function LeadForm({ onSubmit, isDark }) {
             }
           )
         ] }),
+        /* @__PURE__ */ jsxs("div", { style: fieldStyle(true), children: [
+          /* @__PURE__ */ jsx(Building2, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ jsx(
+            "input",
+            {
+              type: "text",
+              value: company,
+              onChange: (e) => setCompany(e.target.value),
+              placeholder: "Company (optional)",
+              "aria-label": "Company",
+              maxLength: 120,
+              style: {
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "#FFFFFF",
+                fontFamily: "inherit",
+                fontSize: 13.5,
+                padding: 0
+              }
+            }
+          )
+        ] }),
         /* @__PURE__ */ jsx(
           Motion.button,
           {
@@ -1179,7 +1262,26 @@ function LeadForm({ onSubmit, isDark }) {
     }
   );
 }
-function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }) {
+function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, onRetry }) {
+  if (msg.role === "system" && msg.kind === "notice") {
+    return /* @__PURE__ */ jsx(
+      Motion.div,
+      {
+        initial: { opacity: 0, y: 4 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.3, ease },
+        style: { display: "flex", justifyContent: "center", padding: "2px 0" },
+        children: /* @__PURE__ */ jsx("div", { style: {
+          fontSize: 11.5,
+          color: "#C9F08F",
+          padding: "4px 10px",
+          borderRadius: 999,
+          background: "rgba(119,213,1,0.10)",
+          border: "1px solid rgba(119,213,1,0.22)"
+        }, children: msg.content })
+      }
+    );
+  }
   if (msg.role === "system" && msg.kind === "lead-form-submitted") {
     return /* @__PURE__ */ jsxs(
       Motion.div,
@@ -1196,6 +1298,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
     );
   }
   const isUser = msg.role === "user";
+  const isHuman = msg.role === "human";
   const hasText = !!msg.content;
   const hasAttachments = msg.attachments && msg.attachments.length > 0;
   const hasAction = !isUser && msg.action && msg.action.type === "human_handoff";
@@ -1219,6 +1322,10 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
         gap: 0
       },
       children: [
+        isHuman && /* @__PURE__ */ jsxs("div", { style: { fontSize: 11, color: "#C9F08F", margin: "0 0 4px 4px", fontWeight: 600 }, children: [
+          msg.author || "ProPrompt",
+          " \xB7 ProPrompt team"
+        ] }),
         /* @__PURE__ */ jsxs(
           "div",
           {
@@ -1228,7 +1335,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
               borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
               background: onlyImages ? "transparent" : isUser ? userBg : botBg,
               color: isUser ? userColor : botColor,
-              border: onlyImages || isUser ? "none" : botBorder,
+              border: onlyImages || isUser ? "none" : isHuman ? "1px solid rgba(119,213,1,0.28)" : botBorder,
               fontSize: 14,
               lineHeight: 1.5,
               fontWeight: 450,
@@ -1241,14 +1348,39 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
             },
             children: [
               hasAttachments && /* @__PURE__ */ jsx("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: msg.attachments.map((a) => /* @__PURE__ */ jsx(AttachmentTile, { att: a, isDark }, a.id)) }),
-              hasText && (isUser ? (
-                // User text stays plain — keeps newlines, no markdown surprises.
+              hasText && (isUser || isHuman ? (
+                // User and team text stay plain — keeps newlines, no markdown surprises.
                 /* @__PURE__ */ jsx("div", { style: { whiteSpace: "pre-wrap" }, children: msg.content })
               ) : (
                 // Bot content is rendered as markdown. The wrapper resets the
                 // default last-child margin so the bubble doesn't have a trailing gap.
                 /* @__PURE__ */ jsx("div", { className: "chatbot-md", children: /* @__PURE__ */ jsx(ChatMessageText, { children: msg.content }) })
               ))
+            ]
+          }
+        ),
+        isUser && msg.status === "sending" && /* @__PURE__ */ jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }, children: "Sending\u2026" }),
+        isUser && msg.status === "failed" && /* @__PURE__ */ jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: () => onRetry && onRetry(msg.id),
+            style: {
+              marginTop: 4,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11.5,
+              color: "#FF9090",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              padding: 0
+            },
+            children: [
+              /* @__PURE__ */ jsx(RotateCcw, { size: 12 }),
+              " Not sent. Tap to retry"
             ]
           }
         ),
@@ -1636,6 +1768,116 @@ function Chatbot({
   const updateChat = useCallback((chatId, updater) => {
     setChats((prev) => prev.map((c) => c.id === chatId ? { ...updater(c), updatedAt: Date.now() } : c));
   }, []);
+  const chatsRef = useRef(chats);
+  chatsRef.current = chats;
+  const openRef = useRef(open);
+  openRef.current = open;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const applyChatUpdates = useCallback((chatId, updates) => {
+    setChats((prev) => prev.map((c) => {
+      if (c.id !== chatId) return c;
+      const before = c.assignee || null;
+      const after = updates.assignee || null;
+      const known = new Set(c.messages.map((m) => m.id));
+      const fresh = (updates.messages || []).filter((m) => !known.has(m.id)).map((m) => ({ id: m.id, role: "human", author: m.author_name, content: m.content, at: m.occurred_at }));
+      if (!fresh.length && (before?.name || null) === (after?.name || null)) return c;
+      let messages = c.messages;
+      let takeoverAt = c.takeoverAt ?? null;
+      let handbackContext = c.handbackContext || null;
+      if (!before && after) {
+        takeoverAt = messages.length;
+        messages = [...messages, { id: newId("n"), role: "system", kind: "notice", content: `${after.name} from ProPrompt has joined the chat` }];
+      }
+      messages = [...messages, ...fresh];
+      if (before && !after) {
+        handbackContext = handbackNote(messages.slice(takeoverAt ?? 0), before.name);
+        takeoverAt = null;
+        messages = [...messages, { id: newId("n"), role: "system", kind: "notice", content: "You're back with Zara" }];
+      }
+      return {
+        ...c,
+        assignee: after,
+        takeoverAt,
+        handbackContext,
+        humanCursor: fresh.length ? fresh[fresh.length - 1].at : c.humanCursor || null,
+        messages,
+        updatedAt: Date.now()
+      };
+    }));
+  }, []);
+  const activeChatKnown = !!activeChat?.messages.some((m) => m.role === "user");
+  const activeChatAssigned = !!activeChat?.assignee;
+  useEffect(() => {
+    if (!activeChat?.id || !activeChatKnown) return void 0;
+    const chatId = activeChat.id;
+    let stopped = false;
+    let timer = null;
+    const tick = async () => {
+      clearTimeout(timer);
+      if (stopped) return;
+      const chat = chatsRef.current.find((c) => c.id === chatId);
+      const visible = typeof document === "undefined" || !document.hidden;
+      const inUse = open || activeChatAssigned || chat && Date.now() - (chat.updatedAt || 0) < RECENT_CHAT_MS;
+      if (chat && visible && inUse) {
+        const updates = await analytics.fetchChatUpdates(chatId, chat.humanCursor || null);
+        if (!stopped && updates) {
+          const known = new Set(chat.messages.map((m) => m.id));
+          const hasNew = (updates.messages || []).some((m) => !known.has(m.id));
+          applyChatUpdates(chatId, updates);
+          if (hasNew && (!openRef.current || viewRef.current !== "chat")) setUnread(true);
+        }
+      }
+      if (!stopped) timer = setTimeout(tick, open ? POLL_OPEN_MS : POLL_CLOSED_MS);
+    };
+    const onVisible = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    tick();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    if (params.get("zara") !== "open") return;
+    const wanted = params.get("chat");
+    if (wanted && chatsRef.current.some((c) => c.id === wanted)) setActiveChatId(wanted);
+    setView("chat");
+    setOpen(true);
+    params.delete("zara");
+    params.delete("chat");
+    const query = params.toString();
+    try {
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    } catch {
+    }
+  }, []);
+  const markSent = useCallback((chatId, messageId, ok, payload) => {
+    updateChat(chatId, (c) => ({
+      ...c,
+      messages: c.messages.map((m) => m.id === messageId ? { ...m, status: ok ? "sent" : "failed", retryPayload: ok ? void 0 : payload } : m)
+    }));
+  }, [updateChat]);
+  const retrySend = useCallback((messageId) => {
+    const chat = chatsRef.current.find((c) => c.messages.some((m) => m.id === messageId));
+    const msg = chat?.messages.find((m) => m.id === messageId);
+    if (!chat || !msg?.retryPayload) return;
+    updateChat(chat.id, (c) => ({
+      ...c,
+      messages: c.messages.map((m) => m.id === messageId ? { ...m, status: "sending" } : m)
+    }));
+    analytics.resend(msg.retryPayload).then((ok) => markSent(chat.id, messageId, ok, msg.retryPayload));
+  }, [analytics, updateChat, markSent]);
   const addFiles = useCallback((fileList) => {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
@@ -1681,17 +1923,50 @@ function Chatbot({
     };
     const isFirstUserMessage = !activeChat.messages.some((m) => m.role === "user");
     const shouldAskLead = isFirstUserMessage && !userInfo && !activeChat.leadAsked;
+    const nextTitle = (c) => c.messages.some((m) => m.role === "user") ? c.title : deriveTitle(trimmed || sentAttachments[0]?.name || "New chat");
+    if (activeChat.assignee) {
+      const chatId2 = activeChat.id;
+      updateChat(chatId2, (c) => ({
+        ...c,
+        title: nextTitle(c),
+        messages: [...c.messages, { ...userMsg, status: "sending" }]
+      }));
+      setInput("");
+      setPendingAttachments([]);
+      analytics.messageSentNow({
+        chatId: chatId2,
+        conversationId: activeChat.conversationId || null,
+        messageId: userMsg.id,
+        content: trimmed,
+        attachments: sentAttachments
+      }).then(({ ok, payload }) => markSent(chatId2, userMsg.id, ok, payload));
+      if (shouldAskLead) {
+        setTimeout(() => {
+          updateChat(chatId2, (c) => ({
+            ...c,
+            leadAsked: true,
+            messages: [...c.messages, { id: newId("lead"), role: "system", kind: "lead-form" }]
+          }));
+        }, 700);
+      }
+      return;
+    }
+    const handback = activeChat.handbackContext || null;
     updateChat(activeChat.id, (c) => ({
       ...c,
-      title: c.messages.some((m) => m.role === "user") ? c.title : deriveTitle(trimmed || sentAttachments[0]?.name || "New chat"),
-      messages: [...c.messages, userMsg]
+      title: nextTitle(c),
+      messages: [...c.messages, userMsg],
+      handbackContext: null
     }));
     setInput("");
     setPendingAttachments([]);
     setTyping(true);
     const chatId = activeChat.id;
     const existingConversationId = activeChat.conversationId;
-    const userTurnText = composeUserTurn(trimmed, sentAttachments);
+    const visitorTurn = composeUserTurn(trimmed, sentAttachments);
+    const userTurnText = handback ? `${handback}
+
+${visitorTurn}` : visitorTurn;
     analytics.messageSent({
       chatId,
       conversationId: existingConversationId || null,
@@ -1752,10 +2027,10 @@ function Chatbot({
         }, 700);
       }
     })();
-  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat]);
-  const submitLead = useCallback(({ name, email }) => {
-    setUserInfo({ name, email, savedAt: Date.now() });
-    analytics.leadCaptured({ name, email });
+  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent]);
+  const submitLead = useCallback(({ name, email, company }) => {
+    setUserInfo({ name, email, ...company ? { company } : {}, savedAt: Date.now() });
+    analytics.leadCaptured({ name, email, company });
     if (!activeChat) return;
     const chatId = activeChat.id;
     updateChat(chatId, (c) => ({
@@ -2164,7 +2439,7 @@ function Chatbot({
                               color: "#FFFFFF",
                               letterSpacing: "-0.01em"
                             },
-                            children: agent.name
+                            children: activeChat?.assignee ? `${activeChat.assignee.name} \xB7 ProPrompt team` : agent.name
                           }
                         ),
                         /* @__PURE__ */ jsx(
@@ -2178,7 +2453,7 @@ function Chatbot({
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap"
                             },
-                            children: activeChat?.title && activeChat.title !== "New chat" ? activeChat.title : agent.title
+                            children: activeChat?.assignee ? "A person from ProPrompt is helping you" : activeChat?.title && activeChat.title !== "New chat" ? activeChat.title : agent.title
                           }
                         )
                       ] })
@@ -2312,6 +2587,7 @@ function Chatbot({
                                 isDark,
                                 userInfo,
                                 handoffConfig,
+                                onRetry: retrySend,
                                 onWhatsappClick: (botMsg, destination) => analytics.whatsappClicked({
                                   chatId: activeChat?.id,
                                   conversationId: activeChat?.conversationId || null,

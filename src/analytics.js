@@ -21,7 +21,7 @@ function makeUUID() {
   })
 }
 
-function getOrCreateVisitorId() {
+export function getOrCreateVisitorId() {
   try {
     let id = window.localStorage.getItem(VISITOR_ID_KEY)
     if (!id) {
@@ -52,7 +52,7 @@ export class ChatAnalytics {
 
   setVisitor(info) {
     this.visitor = info && info.email
-      ? { name: info.name || null, email: info.email }
+      ? { name: info.name || null, email: info.email, ...(info.company ? { company: info.company } : {}) }
       : null
   }
 
@@ -106,6 +106,33 @@ export class ChatAnalytics {
     this._transmit(payload).then(ok => { if (!ok) this._enqueue(payload) })
   }
 
+  // For messages a person is waiting on: send now and report whether it
+  // arrived, so the widget can show "not sent" and retry with the same
+  // payload (same event_id, so the server never stores it twice).
+  async _sendNow(event, data) {
+    const payload = this._envelope(event, data)
+    const ok = await this._transmit(payload)
+    return { ok, payload }
+  }
+
+  async resend(payload) {
+    return this._transmit(payload)
+  }
+
+  // A person's replies in a chat and who is handling it, from the backend
+  // (GET <endpoint>/chats/:chatId/updates). null when unavailable.
+  async fetchChatUpdates(chatId, after) {
+    if (!this.enabled || !chatId) return null
+    const base = this.endpoint.replace(/\/+$/, '')
+    const params = new URLSearchParams({ visitor_id: getOrCreateVisitorId() })
+    if (after) params.set('after', after)
+    try {
+      const res = await fetch(`${base}/chats/${encodeURIComponent(chatId)}/updates?${params}`, { cache: 'no-store' })
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  }
+
   async flushQueue() {
     if (!this.enabled || typeof window === 'undefined') return
     let queue
@@ -145,7 +172,22 @@ export class ChatAnalytics {
       action: action || null,
     })
   }
-  leadCaptured({ name, email }) { this._send('lead_captured', { name, email }) }
+  leadCaptured({ name, email, company }) {
+    this._send('lead_captured', { name, email, ...(company ? { company } : {}) })
+  }
+  // A visitor's message while a person handles the chat: sent now, not queued.
+  messageSentNow({ chatId, conversationId, messageId, content, attachments }) {
+    if (!this.enabled) return Promise.resolve({ ok: false, payload: null })
+    return this._sendNow('message_sent', {
+      chat_id: chatId,
+      conversation_id: conversationId || null,
+      message_id: messageId,
+      content,
+      attachments: (attachments || []).map(a => ({
+        name: a.name, kind: a.kind, size: a.size, type: a.type || null,
+      })),
+    })
+  }
   ticketCreated({ chatId, conversationId, messageId, action }) {
     this._send('ticket_created', {
       chat_id: chatId,
