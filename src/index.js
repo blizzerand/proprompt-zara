@@ -11,8 +11,6 @@
 //       agentApiUrl: 'https://agent-api.proprompt.store',
 //       agentId: 'proprompt',
 //       guestEmail: 'support@codedesign.app',
-//       whatsappNumber: '61490822287',
-//       whatsappPersonName: 'Marrin',
 //       ticketEndpoint: '',
 //       analyticsEndpoint: 'https://api.proprompt.store/chat-events',
 //       analyticsSource: 'proprompt-website',
