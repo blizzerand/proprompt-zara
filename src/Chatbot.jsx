@@ -29,100 +29,13 @@ import {
 import { resolveAgentConfig } from './zaraAgent'
 import { ZaraClient } from './zaraClient'
 import { ChatAnalytics } from './analytics'
+import { ChatMessageText } from './markdown'
 
 // Theme tokens are hardcoded inline at every style site below. Past
 // attempts to thread tokens via CSS custom properties broke in the
 // in-app dashboard (CRA + Tailwind preflight + preact-compat shim) where
 // host-defined :root / body vars shadowed ours. Literal values are the
 // only way to guarantee identical rendering across both host apps.
-
-// Zara's markdown isn't always perfectly formed — the LLM occasionally
-// backslash-escapes brackets, swaps in fullwidth characters, or inserts
-// odd spacing around link syntax. Normalise the common quirks here so
-// the inline link parser below sees clean ASCII markdown.
-function normalizeBotMarkdown(text) {
-  return String(text || '')
-    .replace(/\\([[\]()])/g, '$1')           // \[ \] \( \) → [ ] ( )
-    .replace(/[［【〔]/g, '[')                  // fullwidth → ASCII brackets
-    .replace(/[］】〕]/g, ']')
-    .replace(/（/g, '(').replace(/）/g, ')')   // fullwidth → ASCII parens
-    .replace(/\]\s+\(/g, '](')                // [x] (y) → [x](y)
-    .replace(/ /g, ' ')                  // NBSP → space
-    .replace(/[​-‏﻿]/g, '')    // strip zero-width chars
-}
-
-// Walk a string and pull out [text](url) markdown links and bare URLs.
-// Returns an array of strings + <a> elements that can be rendered
-// directly inside a <p> or <li>.
-const INLINE_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>"]+)/g
-
-function renderInline(text) {
-  const out = []
-  let lastIndex = 0
-  let key = 0
-  let match
-  INLINE_LINK_RE.lastIndex = 0
-  while ((match = INLINE_LINK_RE.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      out.push(text.slice(lastIndex, match.index))
-    }
-    const [whole, mdLabel, mdUrl, bareUrl] = match
-    const url = mdUrl || bareUrl
-    const label = mdLabel || url
-    out.push(
-      <a
-        key={`a-${key++}`}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          color: '#77D501',
-          textDecoration: 'underline',
-          textUnderlineOffset: 2,
-          textDecorationThickness: 1,
-          wordBreak: 'break-word',
-        }}
-      >
-        {label}
-      </a>
-    )
-    lastIndex = match.index + whole.length
-  }
-  if (lastIndex < text.length) out.push(text.slice(lastIndex))
-  return out
-}
-
-function ChatMessageText({ children }) {
-  const clean = normalizeBotMarkdown(children)
-  const blocks = clean.split(/\n{2,}/).filter(Boolean)
-
-  return (
-    <>
-      {blocks.map((block, blockIndex) => {
-        const lines = block.split('\n').filter(Boolean)
-        const isList = lines.every(line => /^\s*([-*]|\d+\.)\s+/.test(line))
-
-        if (isList) {
-          return (
-            <ul key={`block-${blockIndex}`} style={{ margin: '4px 0 8px', paddingLeft: 20 }}>
-              {lines.map((line, lineIndex) => (
-                <li key={`line-${lineIndex}`} style={{ margin: '2px 0', lineHeight: 1.5 }}>
-                  {renderInline(line.replace(/^\s*([-*]|\d+\.)\s+/, ''))}
-                </li>
-              ))}
-            </ul>
-          )
-        }
-
-        return (
-          <p key={`block-${blockIndex}`} style={{ margin: '0 0 8px', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-            {renderInline(block.replace(/^#{1,4}\s+/gm, ''))}
-          </p>
-        )
-      })}
-    </>
-  )
-}
 
 const ease = [0.22, 1, 0.36, 1]
 

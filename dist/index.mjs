@@ -414,61 +414,130 @@ var ChatAnalytics = class {
   }
 };
 
-// src/Chatbot.jsx
-import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+// src/markdown.jsx
+import { Fragment, jsx } from "react/jsx-runtime";
 function normalizeBotMarkdown(text) {
   return String(text || "").replace(/\\([[\]()])/g, "$1").replace(/[［【〔]/g, "[").replace(/[］】〕]/g, "]").replace(/（/g, "(").replace(/）/g, ")").replace(/\]\s+\(/g, "](").replace(/ /g, " ").replace(/[​-‏﻿]/g, "");
 }
-var INLINE_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>"]+)/g;
-function renderInline(text) {
+var INLINE_SOURCE = [
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/.source,
+  // 1 label, 2 url
+  /(https?:\/\/[^\s)<>"*]+)/.source,
+  // 3 bare url
+  /\*\*([^*]+?)\*\*/.source,
+  // 4 bold
+  /__([^_]+?)__/.source,
+  // 5 bold
+  /`([^`\n]+)`/.source,
+  // 6 code
+  /(^|[\s(])[*_]([^*_\n]+?)[*_](?=[\s).,!?:;]|$)/.source
+  // 7 lead, 8 italic
+].join("|");
+var linkStyle = {
+  color: "#77D501",
+  textDecoration: "underline",
+  textUnderlineOffset: 2,
+  textDecorationThickness: 1,
+  wordBreak: "break-word"
+};
+function renderInline(text, keyPrefix = "i") {
+  const re = new RegExp(INLINE_SOURCE, "gm");
   const out = [];
   let lastIndex = 0;
-  let key = 0;
+  let n = 0;
   let match;
-  INLINE_LINK_RE.lastIndex = 0;
-  while ((match = INLINE_LINK_RE.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      out.push(text.slice(lastIndex, match.index));
+  while ((match = re.exec(text)) !== null) {
+    const [whole, mdLabel, mdUrl, bareUrl, bold1, bold2, code, italicLead, italic] = match;
+    if (match.index > lastIndex) out.push(text.slice(lastIndex, match.index));
+    const key = `${keyPrefix}-${n++}`;
+    if (mdUrl || bareUrl) {
+      const url = mdUrl || bareUrl;
+      out.push(
+        /* @__PURE__ */ jsx("a", { href: url, target: "_blank", rel: "noopener noreferrer", style: linkStyle, children: mdLabel ? renderInline(mdLabel, key) : url }, key)
+      );
+    } else if (bold1 !== void 0 || bold2 !== void 0) {
+      out.push(/* @__PURE__ */ jsx("strong", { style: { fontWeight: 700 }, children: renderInline(bold1 ?? bold2, key) }, key));
+    } else if (code !== void 0) {
+      out.push(
+        /* @__PURE__ */ jsx("code", { style: {
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: "0.92em",
+          background: "rgba(255,255,255,0.08)",
+          borderRadius: 4,
+          padding: "1px 4px"
+        }, children: code }, key)
+      );
+    } else if (italic !== void 0) {
+      if (italicLead) out.push(italicLead);
+      out.push(/* @__PURE__ */ jsx("em", { children: renderInline(italic, key) }, key));
     }
-    const [whole, mdLabel, mdUrl, bareUrl] = match;
-    const url = mdUrl || bareUrl;
-    const label = mdLabel || url;
-    out.push(
-      /* @__PURE__ */ jsx(
-        "a",
-        {
-          href: url,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          style: {
-            color: "#77D501",
-            textDecoration: "underline",
-            textUnderlineOffset: 2,
-            textDecorationThickness: 1,
-            wordBreak: "break-word"
-          },
-          children: label
-        },
-        `a-${key++}`
-      )
-    );
     lastIndex = match.index + whole.length;
   }
   if (lastIndex < text.length) out.push(text.slice(lastIndex));
   return out;
 }
+var BULLET_RE = /^\s*[-*•]\s+(.*)$/;
+var NUMBERED_RE = /^\s*(\d+)[.)]\s+(.*)$/;
+var HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
+var RULE_RE = /^\s*([-*_])\1{2,}\s*$/;
 function ChatMessageText({ children }) {
-  const clean = normalizeBotMarkdown(children);
-  const blocks = clean.split(/\n{2,}/).filter(Boolean);
-  return /* @__PURE__ */ jsx(Fragment, { children: blocks.map((block, blockIndex) => {
-    const lines = block.split("\n").filter(Boolean);
-    const isList = lines.every((line) => /^\s*([-*]|\d+\.)\s+/.test(line));
-    if (isList) {
-      return /* @__PURE__ */ jsx("ul", { style: { margin: "4px 0 8px", paddingLeft: 20 }, children: lines.map((line, lineIndex) => /* @__PURE__ */ jsx("li", { style: { margin: "2px 0", lineHeight: 1.5 }, children: renderInline(line.replace(/^\s*([-*]|\d+\.)\s+/, "")) }, `line-${lineIndex}`)) }, `block-${blockIndex}`);
+  const lines = normalizeBotMarkdown(children).split("\n");
+  const nodes = [];
+  let text = [];
+  let list = null;
+  let n = 0;
+  const flushText = () => {
+    if (!text.length) return;
+    const key = `p-${n++}`;
+    nodes.push(
+      /* @__PURE__ */ jsx("p", { style: { margin: "0 0 8px", lineHeight: 1.5, whiteSpace: "pre-line" }, children: renderInline(text.join("\n"), key) }, key)
+    );
+    text = [];
+  };
+  const flushList = () => {
+    if (!list) return;
+    const key = `l-${n++}`;
+    const Tag = list.ordered ? "ol" : "ul";
+    nodes.push(
+      /* @__PURE__ */ jsx(Tag, { start: list.ordered ? list.start : void 0, style: { margin: "4px 0 8px", paddingLeft: 20 }, children: list.items.map((item, i) => /* @__PURE__ */ jsx("li", { style: { margin: "2px 0", lineHeight: 1.5 }, children: renderInline(item, `${key}-${i}`) }, `${key}-${i}`)) }, key)
+    );
+    list = null;
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim() || RULE_RE.test(line)) {
+      flushText();
+      continue;
     }
-    return /* @__PURE__ */ jsx("p", { style: { margin: "0 0 8px", lineHeight: 1.5, whiteSpace: "pre-line" }, children: renderInline(block.replace(/^#{1,4}\s+/gm, "")) }, `block-${blockIndex}`);
-  }) });
+    const bullet = BULLET_RE.exec(line);
+    const numbered = !bullet && NUMBERED_RE.exec(line);
+    if (bullet || numbered) {
+      flushText();
+      const ordered = !!numbered;
+      if (list && list.ordered !== ordered) flushList();
+      if (!list) list = { ordered, start: numbered ? Number(numbered[1]) : 1, items: [] };
+      list.items.push(bullet ? bullet[1] : numbered[2]);
+      continue;
+    }
+    flushList();
+    const heading = HEADING_RE.exec(line);
+    if (heading) {
+      flushText();
+      const key = `h-${n++}`;
+      nodes.push(
+        /* @__PURE__ */ jsx("p", { style: { margin: "0 0 6px", lineHeight: 1.45, fontWeight: 700 }, children: renderInline(heading[1], key) }, key)
+      );
+      continue;
+    }
+    text.push(line);
+  }
+  flushText();
+  flushList();
+  return /* @__PURE__ */ jsx(Fragment, { children: nodes });
 }
+
+// src/Chatbot.jsx
+import { Fragment as Fragment2, jsx as jsx2, jsxs } from "react/jsx-runtime";
 var ease = [0.22, 1, 0.36, 1];
 var MAX_FILE_SIZE = 25 * 1024 * 1024;
 var MAX_ATTACHMENTS = 4;
@@ -507,11 +576,11 @@ function relativeTime(ts) {
   return new Date(ts).toLocaleDateString();
 }
 function fileKindIcon(kind, size = 16) {
-  if (kind === "image") return /* @__PURE__ */ jsx(ImageIcon, { size });
-  if (kind === "video") return /* @__PURE__ */ jsx(Film, { size });
-  if (kind === "audio") return /* @__PURE__ */ jsx(Music, { size });
-  if (kind === "file") return /* @__PURE__ */ jsx(FileText, { size });
-  return /* @__PURE__ */ jsx(FileIcon, { size });
+  if (kind === "image") return /* @__PURE__ */ jsx2(ImageIcon, { size });
+  if (kind === "video") return /* @__PURE__ */ jsx2(Film, { size });
+  if (kind === "audio") return /* @__PURE__ */ jsx2(Music, { size });
+  if (kind === "file") return /* @__PURE__ */ jsx2(FileText, { size });
+  return /* @__PURE__ */ jsx2(FileIcon, { size });
 }
 var isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function safeStorageGet(key, fallback) {
@@ -619,7 +688,7 @@ function parseHandoffAction(text) {
   return { cleanText, action };
 }
 function WhatsAppIcon({ size = 16 }) {
-  return /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx2(
     "svg",
     {
       viewBox: "0 0 24 24",
@@ -627,7 +696,7 @@ function WhatsAppIcon({ size = 16 }) {
       height: size,
       fill: "currentColor",
       "aria-hidden": "true",
-      children: /* @__PURE__ */ jsx("path", { d: "M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345m-5.446 7.443h-.016c-1.77 0-3.524-.48-5.055-1.38l-.36-.214-3.75.975 1.005-3.645-.239-.375c-.99-1.576-1.516-3.391-1.516-5.26 0-5.445 4.455-9.885 9.942-9.885 2.654 0 5.145 1.035 7.021 2.91 1.875 1.875 2.909 4.367 2.909 7.02-.004 5.444-4.46 9.885-9.935 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.495-8.411" })
+      children: /* @__PURE__ */ jsx2("path", { d: "M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345m-5.446 7.443h-.016c-1.77 0-3.524-.48-5.055-1.38l-.36-.214-3.75.975 1.005-3.645-.239-.375c-.99-1.576-1.516-3.391-1.516-5.26 0-5.445 4.455-9.885 9.942-9.885 2.654 0 5.145 1.035 7.021 2.91 1.875 1.875 2.909 4.367 2.909 7.02-.004 5.444-4.46 9.885-9.935 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.495-8.411" })
     }
   );
 }
@@ -724,17 +793,17 @@ function HandoffCard({
                 border: `1px solid ${statusColor}`
               },
               children: [
-                status === "submitting" && /* @__PURE__ */ jsx(
+                status === "submitting" && /* @__PURE__ */ jsx2(
                   Motion.span,
                   {
                     animate: { rotate: 360 },
                     transition: { duration: 1, repeat: Infinity, ease: "linear" },
                     style: { display: "flex" },
-                    children: /* @__PURE__ */ jsx(Loader2, { size: 13 })
+                    children: /* @__PURE__ */ jsx2(Loader2, { size: 13 })
                   }
                 ),
-                status === "failed" && /* @__PURE__ */ jsx(AlertCircle, { size: 14 }),
-                (status === "success" || status === "pending") && /* @__PURE__ */ jsx(Check, { size: 14, strokeWidth: 3 })
+                status === "failed" && /* @__PURE__ */ jsx2(AlertCircle, { size: 14 }),
+                (status === "success" || status === "pending") && /* @__PURE__ */ jsx2(Check, { size: 14, strokeWidth: 3 })
               ]
             }
           ),
@@ -757,7 +826,7 @@ function HandoffCard({
                   status === "failed" && "Couldn't create the ticket",
                   (status === "success" || status === "pending") && "Ticket created"
                 ] }),
-                action.urgency === "high" && /* @__PURE__ */ jsx(
+                action.urgency === "high" && /* @__PURE__ */ jsx2(
                   "span",
                   {
                     style: {
@@ -777,7 +846,7 @@ function HandoffCard({
               ]
             }
           ),
-          /* @__PURE__ */ jsx(Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
+          /* @__PURE__ */ jsx2(Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
         ] }),
         /* @__PURE__ */ jsxs(
           "div",
@@ -788,13 +857,13 @@ function HandoffCard({
               lineHeight: 1.5
             },
             children: [
-              userInfo?.email ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              userInfo?.email ? /* @__PURE__ */ jsxs(Fragment2, { children: [
                 "We'll reply by email to",
                 " ",
-                /* @__PURE__ */ jsx("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
+                /* @__PURE__ */ jsx2("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
                 "."
-              ] }) : /* @__PURE__ */ jsx(Fragment, { children: "Our team will reply by email shortly." }),
-              waUrl && /* @__PURE__ */ jsx(Fragment, { children: " Need a quicker response? Message us on WhatsApp." })
+              ] }) : /* @__PURE__ */ jsx2(Fragment2, { children: "Our team will reply by email shortly." }),
+              waUrl && /* @__PURE__ */ jsx2(Fragment2, { children: " Need a quicker response? Message us on WhatsApp." })
             ]
           }
         ),
@@ -827,7 +896,7 @@ function HandoffCard({
               transition: "box-shadow 0.2s ease"
             },
             children: [
-              /* @__PURE__ */ jsx(WhatsAppIcon, { size: 15 }),
+              /* @__PURE__ */ jsx2(WhatsAppIcon, { size: 15 }),
               "Message ",
               whatsappPerson,
               " on WhatsApp"
@@ -844,7 +913,7 @@ function AgentAvatar({ size = 36, agent }) {
   const showImage = avatarUrl && !failed;
   const radius = Math.round(size * 0.33);
   const iconSize = Math.round(size * 0.47);
-  return /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx2(
     "div",
     {
       style: {
@@ -860,7 +929,7 @@ function AgentAvatar({ size = 36, agent }) {
         color: "#0A0E06",
         flexShrink: 0
       },
-      children: showImage ? /* @__PURE__ */ jsx(
+      children: showImage ? /* @__PURE__ */ jsx2(
         "img",
         {
           src: avatarUrl,
@@ -870,12 +939,12 @@ function AgentAvatar({ size = 36, agent }) {
           loading: "lazy",
           decoding: "async"
         }
-      ) : /* @__PURE__ */ jsx(Sparkles, { size: iconSize, strokeWidth: 2.2 })
+      ) : /* @__PURE__ */ jsx2(Sparkles, { size: iconSize, strokeWidth: 2.2 })
     }
   );
 }
 function PersonAvatar({ size = 36, name }) {
-  return /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx2(
     "div",
     {
       "aria-label": name,
@@ -898,7 +967,7 @@ function PersonAvatar({ size = 36, name }) {
   );
 }
 function TypingDots() {
-  return /* @__PURE__ */ jsx("div", { style: { display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }, children: [0, 1, 2].map((i) => /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx2("div", { style: { display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }, children: [0, 1, 2].map((i) => /* @__PURE__ */ jsx2(
     Motion.span,
     {
       initial: { opacity: 0.3, y: 0 },
@@ -941,7 +1010,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           flexShrink: 0
         },
         children: [
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(
             "img",
             {
               src: att.url,
@@ -955,7 +1024,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               }
             }
           ),
-          removable && /* @__PURE__ */ jsx(
+          removable && /* @__PURE__ */ jsx2(
             "button",
             {
               type: "button",
@@ -976,7 +1045,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
                 alignItems: "center",
                 justifyContent: "center"
               },
-              children: /* @__PURE__ */ jsx(X, { size: 12, strokeWidth: 2.6 })
+              children: /* @__PURE__ */ jsx2(X, { size: 12, strokeWidth: 2.6 })
             }
           )
         ]
@@ -1002,7 +1071,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           flexShrink: 0
         },
         children: [
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(
             "video",
             {
               src: att.url,
@@ -1011,7 +1080,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               style: { display: "block", width: "100%", maxHeight: compact ? 64 : 200, objectFit: "cover" }
             }
           ),
-          removable && /* @__PURE__ */ jsx(
+          removable && /* @__PURE__ */ jsx2(
             "button",
             {
               type: "button",
@@ -1032,7 +1101,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
                 alignItems: "center",
                 justifyContent: "center"
               },
-              children: /* @__PURE__ */ jsx(X, { size: 12, strokeWidth: 2.6 })
+              children: /* @__PURE__ */ jsx2(X, { size: 12, strokeWidth: 2.6 })
             }
           )
         ]
@@ -1061,7 +1130,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
         flexShrink: 0
       },
       children: [
-        /* @__PURE__ */ jsx("div", { style: {
+        /* @__PURE__ */ jsx2("div", { style: {
           width: 36,
           height: 36,
           borderRadius: 10,
@@ -1073,7 +1142,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           flexShrink: 0
         }, children: fileKindIcon(att.kind, 18) }),
         /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(
             "div",
             {
               style: {
@@ -1088,9 +1157,9 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               children: att.name
             }
           ),
-          /* @__PURE__ */ jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }, children: formatBytes(att.size) })
+          /* @__PURE__ */ jsx2("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }, children: formatBytes(att.size) })
         ] }),
-        !removable && att.url && /* @__PURE__ */ jsx(
+        !removable && att.url && /* @__PURE__ */ jsx2(
           "a",
           {
             href: att.url,
@@ -1106,10 +1175,10 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
             },
             onMouseEnter: (e) => e.currentTarget.style.color = "#77D501",
             onMouseLeave: (e) => e.currentTarget.style.color = "rgba(255,255,255,0.55)",
-            children: /* @__PURE__ */ jsx(Download, { size: 15 })
+            children: /* @__PURE__ */ jsx2(Download, { size: 15 })
           }
         ),
-        removable && /* @__PURE__ */ jsx(
+        removable && /* @__PURE__ */ jsx2(
           "button",
           {
             type: "button",
@@ -1130,7 +1199,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               alignItems: "center",
               justifyContent: "center"
             },
-            children: /* @__PURE__ */ jsx(X, { size: 11, strokeWidth: 2.6 })
+            children: /* @__PURE__ */ jsx2(X, { size: 11, strokeWidth: 2.6 })
           }
         )
       ]
@@ -1185,10 +1254,10 @@ function LeadForm({ onSubmit, isDark }) {
         maxWidth: "92%"
       },
       children: [
-        /* @__PURE__ */ jsx("div", { style: { fontSize: 13.5, color: "#FFFFFF", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
+        /* @__PURE__ */ jsx2("div", { style: { fontSize: 13.5, color: "#FFFFFF", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
         /* @__PURE__ */ jsxs("div", { style: fieldStyle(nameValid || !touched), children: [
-          /* @__PURE__ */ jsx(UserIcon, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(UserIcon, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ jsx2(
             "input",
             {
               ref: nameRef,
@@ -1211,8 +1280,8 @@ function LeadForm({ onSubmit, isDark }) {
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { style: fieldStyle(emailValid || !touched), children: [
-          /* @__PURE__ */ jsx(Mail, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(Mail, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ jsx2(
             "input",
             {
               type: "email",
@@ -1234,8 +1303,8 @@ function LeadForm({ onSubmit, isDark }) {
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { style: fieldStyle(true), children: [
-          /* @__PURE__ */ jsx(Building2, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx2(Building2, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ jsx2(
             "input",
             {
               type: "text",
@@ -1257,7 +1326,7 @@ function LeadForm({ onSubmit, isDark }) {
             }
           )
         ] }),
-        /* @__PURE__ */ jsx(
+        /* @__PURE__ */ jsx2(
           Motion.button,
           {
             type: "submit",
@@ -1280,21 +1349,21 @@ function LeadForm({ onSubmit, isDark }) {
             children: submitting ? "Saving\u2026" : "Continue"
           }
         ),
-        touched && (!nameValid || !emailValid) && /* @__PURE__ */ jsx("div", { style: { fontSize: 11.5, color: "#FF9090" }, children: !nameValid ? "Please enter your name." : "Please enter a valid email." })
+        touched && (!nameValid || !emailValid) && /* @__PURE__ */ jsx2("div", { style: { fontSize: 11.5, color: "#FF9090" }, children: !nameValid ? "Please enter your name." : "Please enter a valid email." })
       ]
     }
   );
 }
 function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, onRetry }) {
   if (msg.role === "system" && msg.kind === "notice") {
-    return /* @__PURE__ */ jsx(
+    return /* @__PURE__ */ jsx2(
       Motion.div,
       {
         initial: { opacity: 0, y: 4 },
         animate: { opacity: 1, y: 0 },
         transition: { duration: 0.3, ease },
         style: { display: "flex", justifyContent: "center", padding: "2px 0" },
-        children: /* @__PURE__ */ jsx("div", { style: {
+        children: /* @__PURE__ */ jsx2("div", { style: {
           fontSize: 11.5,
           color: "#C9F08F",
           padding: "4px 10px",
@@ -1370,19 +1439,19 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
               gap: hasText && hasAttachments ? 8 : 0
             },
             children: [
-              hasAttachments && /* @__PURE__ */ jsx("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: msg.attachments.map((a) => /* @__PURE__ */ jsx(AttachmentTile, { att: a, isDark }, a.id)) }),
+              hasAttachments && /* @__PURE__ */ jsx2("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: msg.attachments.map((a) => /* @__PURE__ */ jsx2(AttachmentTile, { att: a, isDark }, a.id)) }),
               hasText && (isUser || isHuman ? (
                 // User and team text stay plain — keeps newlines, no markdown surprises.
-                /* @__PURE__ */ jsx("div", { style: { whiteSpace: "pre-wrap" }, children: msg.content })
+                /* @__PURE__ */ jsx2("div", { style: { whiteSpace: "pre-wrap" }, children: msg.content })
               ) : (
                 // Bot content is rendered as markdown. The wrapper resets the
                 // default last-child margin so the bubble doesn't have a trailing gap.
-                /* @__PURE__ */ jsx("div", { className: "chatbot-md", children: /* @__PURE__ */ jsx(ChatMessageText, { children: msg.content }) })
+                /* @__PURE__ */ jsx2("div", { className: "chatbot-md", children: /* @__PURE__ */ jsx2(ChatMessageText, { children: msg.content }) })
               ))
             ]
           }
         ),
-        isUser && msg.status === "sending" && /* @__PURE__ */ jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }, children: "Sending\u2026" }),
+        isUser && msg.status === "sending" && /* @__PURE__ */ jsx2("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }, children: "Sending\u2026" }),
         isUser && msg.status === "failed" && /* @__PURE__ */ jsxs(
           "button",
           {
@@ -1402,12 +1471,12 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
               padding: 0
             },
             children: [
-              /* @__PURE__ */ jsx(RotateCcw, { size: 12 }),
+              /* @__PURE__ */ jsx2(RotateCcw, { size: 12 }),
               " Not sent. Tap to retry"
             ]
           }
         ),
-        hasAction && /* @__PURE__ */ jsx(
+        hasAction && /* @__PURE__ */ jsx2(
           HandoffCard,
           {
             msgId: msg.id,
@@ -1445,7 +1514,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
         overflow: "hidden"
       },
       children: [
-        canCreateNew && /* @__PURE__ */ jsx("div", { style: { padding: "14px 14px 8px" }, children: /* @__PURE__ */ jsxs(
+        canCreateNew && /* @__PURE__ */ jsx2("div", { style: { padding: "14px 14px 8px" }, children: /* @__PURE__ */ jsxs(
           Motion.button,
           {
             type: "button",
@@ -1470,12 +1539,12 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               boxShadow: "0 6px 20px rgba(119,213,1,0.28)"
             },
             children: [
-              /* @__PURE__ */ jsx(Plus, { size: 16, strokeWidth: 2.4 }),
+              /* @__PURE__ */ jsx2(Plus, { size: 16, strokeWidth: 2.4 }),
               "New chat"
             ]
           }
         ) }),
-        /* @__PURE__ */ jsx("div", { className: "chatbot-scroll", style: { flex: 1, overflowY: "auto", padding: "4px 8px 14px" }, children: sorted.length === 0 ? /* @__PURE__ */ jsx("div", { style: {
+        /* @__PURE__ */ jsx2("div", { className: "chatbot-scroll", style: { flex: 1, overflowY: "auto", padding: "4px 8px 14px" }, children: sorted.length === 0 ? /* @__PURE__ */ jsx2("div", { style: {
           padding: "40px 20px",
           textAlign: "center",
           color: "rgba(255,255,255,0.55)",
@@ -1484,7 +1553,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
           const isActive = chat.id === activeChatId;
           const isConfirm = confirmId === chat.id;
           const preview = lastMessagePreview(chat);
-          return /* @__PURE__ */ jsx(
+          return /* @__PURE__ */ jsx2(
             Motion.div,
             {
               layout: true,
@@ -1506,9 +1575,9 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               onClick: () => {
                 if (!isConfirm) onSelect(chat.id);
               },
-              children: !isConfirm ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              children: !isConfirm ? /* @__PURE__ */ jsxs(Fragment2, { children: [
                 /* @__PURE__ */ jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-                  /* @__PURE__ */ jsx(
+                  /* @__PURE__ */ jsx2(
                     "div",
                     {
                       style: {
@@ -1525,9 +1594,9 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       children: chat.title
                     }
                   ),
-                  /* @__PURE__ */ jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
+                  /* @__PURE__ */ jsx2("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
                 ] }),
-                /* @__PURE__ */ jsx(
+                /* @__PURE__ */ jsx2(
                   "div",
                   {
                     style: {
@@ -1542,7 +1611,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                     children: preview || "\u2014"
                   }
                 ),
-                sorted.length > 1 && /* @__PURE__ */ jsx(
+                sorted.length > 1 && /* @__PURE__ */ jsx2(
                   "button",
                   {
                     type: "button",
@@ -1578,7 +1647,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       e.currentTarget.style.background = "transparent";
                       e.currentTarget.style.color = "rgba(255,255,255,0.35)";
                     },
-                    children: /* @__PURE__ */ jsx(Trash2, { size: 14 })
+                    children: /* @__PURE__ */ jsx2(Trash2, { size: 14 })
                   }
                 )
               ] }) : /* @__PURE__ */ jsxs(
@@ -1588,9 +1657,9 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                   animate: { opacity: 1 },
                   style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
                   children: [
-                    /* @__PURE__ */ jsx("div", { style: { fontSize: 12.5, color: "#FFFFFF" }, children: "Delete this chat?" }),
+                    /* @__PURE__ */ jsx2("div", { style: { fontSize: 12.5, color: "#FFFFFF" }, children: "Delete this chat?" }),
                     /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 6 }, children: [
-                      /* @__PURE__ */ jsx(
+                      /* @__PURE__ */ jsx2(
                         "button",
                         {
                           type: "button",
@@ -1611,7 +1680,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                           children: "Cancel"
                         }
                       ),
-                      /* @__PURE__ */ jsx(
+                      /* @__PURE__ */ jsx2(
                         "button",
                         {
                           type: "button",
@@ -2170,7 +2239,7 @@ ${visitorTurn}` : visitorTurn;
         textAlign: "left"
       },
       children: [
-        /* @__PURE__ */ jsx(AnimatePresence, { children: !open && /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx2(AnimatePresence, { children: !open && /* @__PURE__ */ jsxs(
           Motion.button,
           {
             initial: { opacity: 0, scale: 0.6, y: 20 },
@@ -2199,7 +2268,7 @@ ${visitorTurn}` : visitorTurn;
               boxShadow: "0 10px 32px rgba(119,213,1,0.45), 0 2px 6px rgba(0,0,0,0.3)"
             },
             children: [
-              /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx2(
                 Motion.span,
                 {
                   "aria-hidden": true,
@@ -2214,8 +2283,8 @@ ${visitorTurn}` : visitorTurn;
                   }
                 }
               ),
-              /* @__PURE__ */ jsx(MessageCircle, { size: 24, strokeWidth: 2.2 }),
-              unread && /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx2(MessageCircle, { size: 24, strokeWidth: 2.2 }),
+              unread && /* @__PURE__ */ jsx2(
                 Motion.span,
                 {
                   initial: { scale: 0 },
@@ -2237,7 +2306,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "fab"
         ) }),
-        /* @__PURE__ */ jsx(AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx2(AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ jsxs(
           Motion.div,
           {
             initial: { opacity: 0, x: 10, y: 4 },
@@ -2273,9 +2342,9 @@ ${visitorTurn}` : visitorTurn;
               setOpen(true);
             },
             children: [
-              /* @__PURE__ */ jsx(AgentAvatar, { size: 48, agent }),
-              /* @__PURE__ */ jsx("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
-              /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx2(AgentAvatar, { size: 48, agent }),
+              /* @__PURE__ */ jsx2("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
+              /* @__PURE__ */ jsx2(
                 "span",
                 {
                   "aria-hidden": true,
@@ -2296,7 +2365,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "zara-helper"
         ) }),
-        /* @__PURE__ */ jsx(AnimatePresence, { children: open && /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx2(AnimatePresence, { children: open && /* @__PURE__ */ jsxs(
           Motion.div,
           {
             initial: { opacity: 0, y: 24, scale: 0.96 },
@@ -2330,7 +2399,7 @@ ${visitorTurn}` : visitorTurn;
               transformOrigin: "bottom right"
             },
             children: [
-              /* @__PURE__ */ jsx(AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ jsxs(
+              /* @__PURE__ */ jsx2(AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ jsxs(
                 Motion.div,
                 {
                   initial: { opacity: 0 },
@@ -2353,7 +2422,7 @@ ${visitorTurn}` : visitorTurn;
                     pointerEvents: "none"
                   },
                   children: [
-                    /* @__PURE__ */ jsx(
+                    /* @__PURE__ */ jsx2(
                       Motion.div,
                       {
                         animate: { y: [0, -4, 0] },
@@ -2369,15 +2438,15 @@ ${visitorTurn}` : visitorTurn;
                           justifyContent: "center",
                           border: "1px solid rgba(119,213,1,0.24)"
                         },
-                        children: /* @__PURE__ */ jsx(UploadCloud, { size: 22 })
+                        children: /* @__PURE__ */ jsx2(UploadCloud, { size: 22 })
                       }
                     ),
-                    /* @__PURE__ */ jsx("div", { style: { fontSize: 14, fontWeight: 600, color: "#FFFFFF" }, children: "Drop to attach" }),
-                    /* @__PURE__ */ jsx("div", { style: { fontSize: 12, color: "rgba(255,255,255,0.55)" }, children: "Images, video, audio, or documents" })
+                    /* @__PURE__ */ jsx2("div", { style: { fontSize: 14, fontWeight: 600, color: "#FFFFFF" }, children: "Drop to attach" }),
+                    /* @__PURE__ */ jsx2("div", { style: { fontSize: 12, color: "rgba(255,255,255,0.55)" }, children: "Images, video, audio, or documents" })
                   ]
                 }
               ) }),
-              /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx2(
                 "div",
                 {
                   style: {
@@ -2387,7 +2456,7 @@ ${visitorTurn}` : visitorTurn;
                     background: headerGradient
                   },
                   children: /* @__PURE__ */ jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
-                    view === "chat" ? /* @__PURE__ */ jsx(
+                    view === "chat" ? /* @__PURE__ */ jsx2(
                       "button",
                       {
                         onClick: () => setView("list"),
@@ -2416,9 +2485,9 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ jsx(MessagesSquare, { size: 15 })
+                        children: /* @__PURE__ */ jsx2(MessagesSquare, { size: 15 })
                       }
-                    ) : /* @__PURE__ */ jsx(
+                    ) : /* @__PURE__ */ jsx2(
                       "button",
                       {
                         onClick: () => setView("chat"),
@@ -2447,13 +2516,13 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ jsx(ArrowLeft, { size: 15 })
+                        children: /* @__PURE__ */ jsx2(ArrowLeft, { size: 15 })
                       }
                     ),
-                    view === "chat" ? /* @__PURE__ */ jsxs(Fragment, { children: [
-                      activeChat?.assignee ? /* @__PURE__ */ jsx(PersonAvatar, { size: 36, name: activeChat.assignee.name }) : /* @__PURE__ */ jsx(AgentAvatar, { size: 36, agent }),
+                    view === "chat" ? /* @__PURE__ */ jsxs(Fragment2, { children: [
+                      activeChat?.assignee ? /* @__PURE__ */ jsx2(PersonAvatar, { size: 36, name: activeChat.assignee.name }) : /* @__PURE__ */ jsx2(AgentAvatar, { size: 36, agent }),
                       /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
-                        /* @__PURE__ */ jsx(
+                        /* @__PURE__ */ jsx2(
                           "div",
                           {
                             style: {
@@ -2465,7 +2534,7 @@ ${visitorTurn}` : visitorTurn;
                             children: activeChat?.assignee ? `${activeChat.assignee.name} \xB7 ProPrompt team` : agent.name
                           }
                         ),
-                        /* @__PURE__ */ jsx(
+                        /* @__PURE__ */ jsx2(
                           "div",
                           {
                             style: {
@@ -2481,14 +2550,14 @@ ${visitorTurn}` : visitorTurn;
                         )
                       ] })
                     ] }) : /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
-                      /* @__PURE__ */ jsx("div", { style: { fontSize: 14.5, fontWeight: 700, color: "#FFFFFF" }, children: "Your chats" }),
+                      /* @__PURE__ */ jsx2("div", { style: { fontSize: 14.5, fontWeight: 700, color: "#FFFFFF" }, children: "Your chats" }),
                       /* @__PURE__ */ jsxs("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.55)", marginTop: 1 }, children: [
                         chats.length,
                         " ",
                         chats.length === 1 ? "conversation" : "conversations"
                       ] })
                     ] }),
-                    view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ jsx(
+                    view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ jsx2(
                       "button",
                       {
                         onClick: newChat,
@@ -2517,10 +2586,10 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ jsx(Plus, { size: 15 })
+                        children: /* @__PURE__ */ jsx2(Plus, { size: 15 })
                       }
                     ),
-                    /* @__PURE__ */ jsx(
+                    /* @__PURE__ */ jsx2(
                       "button",
                       {
                         onClick: () => setOpen(false),
@@ -2548,13 +2617,13 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ jsx(X, { size: 16 })
+                        children: /* @__PURE__ */ jsx2(X, { size: 16 })
                       }
                     )
                   ] })
                 }
               ),
-              /* @__PURE__ */ jsx(AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx2(AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ jsx2(
                 ChatListView,
                 {
                   chats,
@@ -2591,19 +2660,19 @@ ${visitorTurn}` : visitorTurn;
                         children: [
                           activeChat?.messages.map((m) => {
                             if (m.role === "system" && m.kind === "lead-form") {
-                              return /* @__PURE__ */ jsx(
+                              return /* @__PURE__ */ jsx2(
                                 Motion.div,
                                 {
                                   initial: { opacity: 0 },
                                   animate: { opacity: 1 },
                                   transition: { duration: 0.3 },
                                   style: { display: "flex", justifyContent: "flex-start" },
-                                  children: /* @__PURE__ */ jsx(LeadForm, { onSubmit: submitLead, isDark })
+                                  children: /* @__PURE__ */ jsx2(LeadForm, { onSubmit: submitLead, isDark })
                                 },
                                 m.id
                               );
                             }
-                            return /* @__PURE__ */ jsx(
+                            return /* @__PURE__ */ jsx2(
                               MessageBubble,
                               {
                                 msg: m,
@@ -2622,14 +2691,14 @@ ${visitorTurn}` : visitorTurn;
                               m.id
                             );
                           }),
-                          typing && /* @__PURE__ */ jsx(
+                          typing && /* @__PURE__ */ jsx2(
                             Motion.div,
                             {
                               initial: { opacity: 0, y: 6 },
                               animate: { opacity: 1, y: 0 },
                               transition: { duration: 0.25 },
                               style: { display: "flex", justifyContent: "flex-start" },
-                              children: /* @__PURE__ */ jsx(
+                              children: /* @__PURE__ */ jsx2(
                                 "div",
                                 {
                                   style: {
@@ -2638,19 +2707,19 @@ ${visitorTurn}` : visitorTurn;
                                     background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
                                     border: "1px solid rgba(255,255,255,0.07)"
                                   },
-                                  children: /* @__PURE__ */ jsx(TypingDots, {})
+                                  children: /* @__PURE__ */ jsx2(TypingDots, {})
                                 }
                               )
                             }
                           ),
-                          showSuggestions && /* @__PURE__ */ jsx(
+                          showSuggestions && /* @__PURE__ */ jsx2(
                             Motion.div,
                             {
                               initial: { opacity: 0, y: 8 },
                               animate: { opacity: 1, y: 0 },
                               transition: { delay: 0.15, duration: 0.4, ease },
                               style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 },
-                              children: agent.suggestions.map((s, i) => /* @__PURE__ */ jsx(
+                              children: agent.suggestions.map((s, i) => /* @__PURE__ */ jsx2(
                                 Motion.button,
                                 {
                                   initial: { opacity: 0, y: 6 },
@@ -2690,7 +2759,7 @@ ${visitorTurn}` : visitorTurn;
                           background: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.015)"
                         },
                         children: [
-                          /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ jsx(
+                          /* @__PURE__ */ jsx2(AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ jsx2(
                             Motion.div,
                             {
                               layout: true,
@@ -2699,7 +2768,7 @@ ${visitorTurn}` : visitorTurn;
                               exit: { opacity: 0, height: 0 },
                               transition: { duration: 0.22, ease },
                               style: { display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 10, overflow: "hidden" },
-                              children: /* @__PURE__ */ jsx(AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ jsx(
+                              children: /* @__PURE__ */ jsx2(AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ jsx2(
                                 AttachmentTile,
                                 {
                                   att,
@@ -2733,7 +2802,7 @@ ${visitorTurn}` : visitorTurn;
                                 e.currentTarget.style.boxShadow = "none";
                               },
                               children: [
-                                /* @__PURE__ */ jsx(
+                                /* @__PURE__ */ jsx2(
                                   Motion.button,
                                   {
                                     type: "button",
@@ -2766,10 +2835,10 @@ ${visitorTurn}` : visitorTurn;
                                       e.currentTarget.style.background = "transparent";
                                       e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                                     },
-                                    children: /* @__PURE__ */ jsx(Paperclip, { size: 17 })
+                                    children: /* @__PURE__ */ jsx2(Paperclip, { size: 17 })
                                   }
                                 ),
-                                /* @__PURE__ */ jsx(
+                                /* @__PURE__ */ jsx2(
                                   "input",
                                   {
                                     ref: inputRef,
@@ -2791,7 +2860,7 @@ ${visitorTurn}` : visitorTurn;
                                     }
                                   }
                                 ),
-                                /* @__PURE__ */ jsx(
+                                /* @__PURE__ */ jsx2(
                                   Motion.button,
                                   {
                                     type: "submit",
@@ -2813,13 +2882,13 @@ ${visitorTurn}` : visitorTurn;
                                       flexShrink: 0,
                                       transition: "background 0.2s ease, color 0.2s ease"
                                     },
-                                    children: /* @__PURE__ */ jsx(ArrowUp, { size: 16, strokeWidth: 2.6 })
+                                    children: /* @__PURE__ */ jsx2(ArrowUp, { size: 16, strokeWidth: 2.6 })
                                   }
                                 )
                               ]
                             }
                           ),
-                          /* @__PURE__ */ jsx(
+                          /* @__PURE__ */ jsx2(
                             "input",
                             {
                               ref: fileInputRef,
@@ -2833,7 +2902,7 @@ ${visitorTurn}` : visitorTurn;
                               "aria-hidden": "true"
                             }
                           ),
-                          /* @__PURE__ */ jsx(
+                          /* @__PURE__ */ jsx2(
                             "div",
                             {
                               style: {
@@ -2857,7 +2926,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "panel"
         ) }),
-        /* @__PURE__ */ jsx("style", { children: `
+        /* @__PURE__ */ jsx2("style", { children: `
         .chatbot-scroll::-webkit-scrollbar { width: 6px; }
         .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
         .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
