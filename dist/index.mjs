@@ -399,16 +399,6 @@ var ChatAnalytics = class {
       urgency: action.urgency
     });
   }
-  whatsappClicked({ chatId, conversationId, messageId, action, destination }) {
-    this._send("whatsapp_clicked", {
-      chat_id: chatId,
-      conversation_id: conversationId || null,
-      message_id: messageId,
-      destination: destination || null,
-      reason: action?.reason || null,
-      summary: action?.summary || null
-    });
-  }
   chatDeleted({ chatId }) {
     this._send("chat_deleted", { chat_id: chatId });
   }
@@ -687,27 +677,11 @@ function parseHandoffAction(text) {
   const cleanText = text.slice(0, match.index).trimEnd();
   return { cleanText, action };
 }
-function WhatsAppIcon({ size = 16 }) {
-  return /* @__PURE__ */ jsx2(
-    "svg",
-    {
-      viewBox: "0 0 24 24",
-      width: size,
-      height: size,
-      fill: "currentColor",
-      "aria-hidden": "true",
-      children: /* @__PURE__ */ jsx2("path", { d: "M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345m-5.446 7.443h-.016c-1.77 0-3.524-.48-5.055-1.38l-.36-.214-3.75.975 1.005-3.645-.239-.375c-.99-1.576-1.516-3.391-1.516-5.26 0-5.445 4.455-9.885 9.942-9.885 2.654 0 5.145 1.035 7.021 2.91 1.875 1.875 2.909 4.367 2.909 7.02-.004 5.444-4.46 9.885-9.935 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.495-8.411" })
-    }
-  );
-}
 function HandoffCard({
   msgId,
   action,
   userInfo,
   isDark,
-  onWhatsappClick,
-  whatsappNumber,
-  whatsappPerson,
   ticketEndpoint,
   analyticsSource
 }) {
@@ -749,10 +723,6 @@ function HandoffCard({
       }
     }).catch(() => setStatus("failed"));
   }, [action, userInfo, status, storageKey, ticketEndpoint, analyticsSource]);
-  const waMessage = encodeURIComponent(
-    "Hey! I had a few questions about Proprompt, can we connect?"
-  );
-  const waUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${waMessage}` : null;
   const statusColor = status === "failed" ? "#FF5C5C" : "#77D501";
   const statusBg = status === "failed" ? "rgba(255,92,92,0.15)" : "rgba(119,213,1,0.14)";
   return /* @__PURE__ */ jsxs(
@@ -848,7 +818,7 @@ function HandoffCard({
           ),
           /* @__PURE__ */ jsx2(Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
         ] }),
-        /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx2(
           "div",
           {
             style: {
@@ -856,51 +826,12 @@ function HandoffCard({
               color: "rgba(255,255,255,0.55)",
               lineHeight: 1.5
             },
-            children: [
-              userInfo?.email ? /* @__PURE__ */ jsxs(Fragment2, { children: [
-                "We'll reply by email to",
-                " ",
-                /* @__PURE__ */ jsx2("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
-                "."
-              ] }) : /* @__PURE__ */ jsx2(Fragment2, { children: "Our team will reply by email shortly." }),
-              waUrl && /* @__PURE__ */ jsx2(Fragment2, { children: " Need a quicker response? Message us on WhatsApp." })
-            ]
-          }
-        ),
-        waUrl && /* @__PURE__ */ jsxs(
-          Motion.a,
-          {
-            href: waUrl,
-            target: "_blank",
-            rel: "noopener noreferrer",
-            whileHover: { y: -1 },
-            whileTap: { scale: 0.98 },
-            onClick: () => {
-              if (typeof onWhatsappClick === "function") {
-                onWhatsappClick({ destination: waUrl });
-              }
-            },
-            style: {
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "10px 14px",
-              borderRadius: 10,
-              background: "#25D366",
-              color: "#fff",
-              textDecoration: "none",
-              fontWeight: 600,
-              fontSize: 13,
-              boxShadow: "0 4px 14px rgba(37,211,102,0.32)",
-              transition: "box-shadow 0.2s ease"
-            },
-            children: [
-              /* @__PURE__ */ jsx2(WhatsAppIcon, { size: 15 }),
-              "Message ",
-              whatsappPerson,
-              " on WhatsApp"
-            ]
+            children: userInfo?.email ? /* @__PURE__ */ jsxs(Fragment2, { children: [
+              "The ProPrompt team will get back to you soon at",
+              " ",
+              /* @__PURE__ */ jsx2("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
+              "."
+            ] }) : /* @__PURE__ */ jsx2(Fragment2, { children: "The ProPrompt team will get back to you soon." })
           }
         )
       ]
@@ -1354,7 +1285,7 @@ function LeadForm({ onSubmit, isDark }) {
     }
   );
 }
-function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, onRetry }) {
+function MessageBubble({ msg, isDark, userInfo, handoffConfig, onRetry }) {
   if (msg.role === "system" && msg.kind === "notice") {
     return /* @__PURE__ */ jsx2(
       Motion.div,
@@ -1483,9 +1414,6 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
             action: msg.action,
             userInfo,
             isDark,
-            onWhatsappClick: typeof onWhatsappClick === "function" ? ({ destination }) => onWhatsappClick(msg, destination) : void 0,
-            whatsappNumber: handoffConfig?.whatsappNumber,
-            whatsappPerson: handoffConfig?.whatsappPerson,
             ticketEndpoint: handoffConfig?.ticketEndpoint,
             analyticsSource: handoffConfig?.analyticsSource
           }
@@ -1742,11 +1670,9 @@ function Chatbot({
   const zaraClient = zaraClientRef.current;
   const analytics = analyticsRef.current;
   const handoffConfig = useMemo(() => ({
-    whatsappNumber: (config.whatsappNumber || "").toString().replace(/\D/g, ""),
-    whatsappPerson: config.whatsappPersonName || "Marrin",
     ticketEndpoint: config.ticketEndpoint || "",
     analyticsSource: config.analyticsSource || "proprompt-website"
-  }), [config.whatsappNumber, config.whatsappPersonName, config.ticketEndpoint, config.analyticsSource]);
+  }), [config.ticketEndpoint, config.analyticsSource]);
   const seededUser = useMemo(() => {
     if (!user || !user.email) return null;
     return { name: user.name || null, email: user.email, savedAt: Date.now() };
@@ -2679,14 +2605,7 @@ ${visitorTurn}` : visitorTurn;
                                 isDark,
                                 userInfo,
                                 handoffConfig,
-                                onRetry: retrySend,
-                                onWhatsappClick: (botMsg, destination) => analytics.whatsappClicked({
-                                  chatId: activeChat?.id,
-                                  conversationId: activeChat?.conversationId || null,
-                                  messageId: botMsg.id,
-                                  action: botMsg.action,
-                                  destination
-                                })
+                                onRetry: retrySend
                               },
                               m.id
                             );

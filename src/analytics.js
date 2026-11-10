@@ -198,15 +198,5 @@ export class ChatAnalytics {
       urgency: action.urgency,
     })
   }
-  whatsappClicked({ chatId, conversationId, messageId, action, destination }) {
-    this._send('whatsapp_clicked', {
-      chat_id: chatId,
-      conversation_id: conversationId || null,
-      message_id: messageId,
-      destination: destination || null,
-      reason: action?.reason || null,
-      summary: action?.summary || null,
-    })
-  }
   chatDeleted({ chatId }) { this._send('chat_deleted', { chat_id: chatId }) }
 }
