@@ -614,6 +614,10 @@ function lastMessagePreview(chat) {
   }
   return "";
 }
+function replyPreviewText(text, max = 110) {
+  const plain = String(text || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/(\*\*|__|`)/g, "").replace(/^\s*([-*•]|\d+[.)]|#{1,6})\s+/gm, "").replace(/\s+/g, " ").trim();
+  return plain.length > max ? `${plain.slice(0, max - 1).trimEnd()}\u2026` : plain;
+}
 function handbackNote(messages, personName) {
   const lines = messages.filter((m) => (m.role === "user" || m.role === "human") && m.content).slice(-20).map((m) => {
     const who = m.role === "user" ? "Visitor" : `${m.author || personName} (ProPrompt team)`;
@@ -1695,6 +1699,7 @@ function Chatbot({
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [typing, setTyping] = useState(false);
   const [unread, setUnread] = useState(false);
+  const [unreadPreview, setUnreadPreview] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [helperVisible, setHelperVisible] = useState(true);
   const scrollRef = useRef(null);
@@ -1760,12 +1765,16 @@ function Chatbot({
     return () => window.clearTimeout(t);
   }, [helperVisible]);
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [activeChat?.messages, typing, view]);
+    if (!open || !scrollRef.current) return void 0;
+    const el = scrollRef.current;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    const t = setTimeout(() => el.scrollTo({ top: el.scrollHeight }), 350);
+    return () => clearTimeout(t);
+  }, [open, activeChat?.messages, typing, view]);
   useEffect(() => {
     if (open && view === "chat") {
       setUnread(false);
+      setUnreadPreview(null);
       const id = setTimeout(() => inputRef.current?.focus(), 280);
       return () => clearTimeout(id);
     }
@@ -1824,6 +1833,21 @@ function Chatbot({
       };
     }));
   }, []);
+  const noteReplies = useCallback((replies, joinedName = null) => {
+    if (openRef.current && viewRef.current === "chat") return;
+    if (!replies.length && !joinedName) return;
+    setUnread(true);
+    setUnreadPreview((prev) => {
+      const latest = replies[replies.length - 1];
+      return {
+        count: (prev?.count || 0) + replies.length,
+        author: latest ? latest.author : prev?.author || joinedName,
+        content: latest ? latest.content : prev?.content || "",
+        isTeam: latest ? latest.isTeam : prev ? prev.isTeam : true,
+        joined: joinedName || prev?.joined || null
+      };
+    });
+  }, []);
   const activeChatKnown = !!activeChat?.messages.some((m) => m.role === "user");
   const activeChatAssigned = !!activeChat?.assignee;
   useEffect(() => {
@@ -1841,9 +1865,13 @@ function Chatbot({
         const updates = await analytics.fetchChatUpdates(chatId, chat.humanCursor || null);
         if (!stopped && updates) {
           const known = new Set(chat.messages.map((m) => m.id));
-          const hasNew = (updates.messages || []).some((m) => !known.has(m.id));
+          const fresh = (updates.messages || []).filter((m) => !known.has(m.id));
+          const joinedName = !chat.assignee && updates.assignee ? updates.assignee.name : null;
           applyChatUpdates(chatId, updates);
-          if (hasNew && (!openRef.current || viewRef.current !== "chat")) setUnread(true);
+          noteReplies(
+            fresh.map((m) => ({ author: m.author_name, content: m.content, isTeam: true })),
+            joinedName
+          );
         }
       }
       if (!stopped) timer = setTimeout(tick, open ? POLL_OPEN_MS : POLL_CLOSED_MS);
@@ -1858,7 +1886,7 @@ function Chatbot({
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates]);
+  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates, noteReplies]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     let params;
@@ -2008,6 +2036,7 @@ ${visitorTurn}` : visitorTurn;
           conversationId: result.conversationId || c.conversationId,
           messages: [...c.messages, botMsg]
         }));
+        noteReplies([{ author: "Zara", content: botMsg.content, isTeam: false }]);
         analytics.messageReceived({
           chatId,
           conversationId: newConversationId,
@@ -2033,7 +2062,7 @@ ${visitorTurn}` : visitorTurn;
         updateChat(chatId, (c) => ({ ...c, messages: [...c.messages, botMsg] }));
       } finally {
         setTyping(false);
-        if (!open || view !== "chat") setUnread(true);
+        if (!openRef.current || viewRef.current !== "chat") setUnread(true);
       }
       if (shouldAskLead) {
         setTimeout(() => {
@@ -2045,7 +2074,7 @@ ${visitorTurn}` : visitorTurn;
         }, 700);
       }
     })();
-  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent]);
+  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent, noteReplies]);
   const submitLead = useCallback(({ name, email, company }) => {
     setUserInfo({ name, email, ...company ? { company } : {}, savedAt: Date.now() });
     analytics.leadCaptured({ name, email, company });
@@ -2216,7 +2245,24 @@ ${visitorTurn}` : visitorTurn;
                   initial: { scale: 0 },
                   animate: { scale: 1 },
                   transition: { type: "spring", stiffness: 500, damping: 18 },
-                  style: {
+                  "aria-label": unreadPreview?.count ? `${unreadPreview.count} new ${unreadPreview.count === 1 ? "reply" : "replies"}` : "New activity",
+                  style: unreadPreview?.count ? {
+                    position: "absolute",
+                    top: -2,
+                    right: -2,
+                    minWidth: 20,
+                    height: 20,
+                    padding: "0 5px",
+                    borderRadius: 10,
+                    background: "#FF5C5C",
+                    border: "2px solid #77D501",
+                    color: "#FFFFFF",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    lineHeight: "16px",
+                    textAlign: "center",
+                    boxSizing: "border-box"
+                  } : {
                     position: "absolute",
                     top: 4,
                     right: 4,
@@ -2225,14 +2271,15 @@ ${visitorTurn}` : visitorTurn;
                     borderRadius: "50%",
                     background: "#FF5C5C",
                     border: "2px solid #77D501"
-                  }
+                  },
+                  children: unreadPreview?.count ? unreadPreview.count > 9 ? "9+" : unreadPreview.count : null
                 }
               )
             ]
           },
           "fab"
         ) }),
-        /* @__PURE__ */ jsx2(AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx2(AnimatePresence, { children: !open && (helperVisible || unreadPreview) && /* @__PURE__ */ jsxs(
           Motion.div,
           {
             initial: { opacity: 0, x: 10, y: 4 },
@@ -2265,11 +2312,28 @@ ${visitorTurn}` : visitorTurn;
             },
             onClick: () => {
               setHelperVisible(false);
+              setView("chat");
               setOpen(true);
             },
             children: [
-              /* @__PURE__ */ jsx2(AgentAvatar, { size: 48, agent }),
-              /* @__PURE__ */ jsx2("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
+              unreadPreview ? /* @__PURE__ */ jsxs(Fragment2, { children: [
+                unreadPreview.isTeam ? /* @__PURE__ */ jsx2(PersonAvatar, { size: 48, name: unreadPreview.author }) : /* @__PURE__ */ jsx2(AgentAvatar, { size: 48, agent }),
+                /* @__PURE__ */ jsxs("span", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }, children: [
+                  /* @__PURE__ */ jsx2("span", { children: unreadPreview.count > 1 ? `You have ${unreadPreview.count} new replies` : unreadPreview.count === 1 ? unreadPreview.isTeam ? `${unreadPreview.author} from ProPrompt replied` : "Zara replied" : `${unreadPreview.joined} from ProPrompt joined your chat` }),
+                  unreadPreview.content && /* @__PURE__ */ jsx2("span", { style: {
+                    fontSize: 13,
+                    fontWeight: 450,
+                    color: "rgba(255,255,255,0.72)",
+                    overflow: "hidden",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical"
+                  }, children: replyPreviewText(unreadPreview.content) })
+                ] })
+              ] }) : /* @__PURE__ */ jsxs(Fragment2, { children: [
+                /* @__PURE__ */ jsx2(AgentAvatar, { size: 48, agent }),
+                /* @__PURE__ */ jsx2("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." })
+              ] }),
               /* @__PURE__ */ jsx2(
                 "span",
                 {
