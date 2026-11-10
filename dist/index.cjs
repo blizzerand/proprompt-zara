@@ -417,61 +417,130 @@ var ChatAnalytics = class {
   }
 };
 
-// src/Chatbot.jsx
+// src/markdown.jsx
 var import_jsx_runtime = require("react/jsx-runtime");
 function normalizeBotMarkdown(text) {
   return String(text || "").replace(/\\([[\]()])/g, "$1").replace(/[［【〔]/g, "[").replace(/[］】〕]/g, "]").replace(/（/g, "(").replace(/）/g, ")").replace(/\]\s+\(/g, "](").replace(/ /g, " ").replace(/[​-‏﻿]/g, "");
 }
-var INLINE_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>"]+)/g;
-function renderInline(text) {
+var INLINE_SOURCE = [
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/.source,
+  // 1 label, 2 url
+  /(https?:\/\/[^\s)<>"*]+)/.source,
+  // 3 bare url
+  /\*\*([^*]+?)\*\*/.source,
+  // 4 bold
+  /__([^_]+?)__/.source,
+  // 5 bold
+  /`([^`\n]+)`/.source,
+  // 6 code
+  /(^|[\s(])[*_]([^*_\n]+?)[*_](?=[\s).,!?:;]|$)/.source
+  // 7 lead, 8 italic
+].join("|");
+var linkStyle = {
+  color: "#77D501",
+  textDecoration: "underline",
+  textUnderlineOffset: 2,
+  textDecorationThickness: 1,
+  wordBreak: "break-word"
+};
+function renderInline(text, keyPrefix = "i") {
+  const re = new RegExp(INLINE_SOURCE, "gm");
   const out = [];
   let lastIndex = 0;
-  let key = 0;
+  let n = 0;
   let match;
-  INLINE_LINK_RE.lastIndex = 0;
-  while ((match = INLINE_LINK_RE.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      out.push(text.slice(lastIndex, match.index));
+  while ((match = re.exec(text)) !== null) {
+    const [whole, mdLabel, mdUrl, bareUrl, bold1, bold2, code, italicLead, italic] = match;
+    if (match.index > lastIndex) out.push(text.slice(lastIndex, match.index));
+    const key = `${keyPrefix}-${n++}`;
+    if (mdUrl || bareUrl) {
+      const url = mdUrl || bareUrl;
+      out.push(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: url, target: "_blank", rel: "noopener noreferrer", style: linkStyle, children: mdLabel ? renderInline(mdLabel, key) : url }, key)
+      );
+    } else if (bold1 !== void 0 || bold2 !== void 0) {
+      out.push(/* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { style: { fontWeight: 700 }, children: renderInline(bold1 ?? bold2, key) }, key));
+    } else if (code !== void 0) {
+      out.push(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: {
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: "0.92em",
+          background: "rgba(255,255,255,0.08)",
+          borderRadius: 4,
+          padding: "1px 4px"
+        }, children: code }, key)
+      );
+    } else if (italic !== void 0) {
+      if (italicLead) out.push(italicLead);
+      out.push(/* @__PURE__ */ (0, import_jsx_runtime.jsx)("em", { children: renderInline(italic, key) }, key));
     }
-    const [whole, mdLabel, mdUrl, bareUrl] = match;
-    const url = mdUrl || bareUrl;
-    const label = mdLabel || url;
-    out.push(
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "a",
-        {
-          href: url,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          style: {
-            color: "#77D501",
-            textDecoration: "underline",
-            textUnderlineOffset: 2,
-            textDecorationThickness: 1,
-            wordBreak: "break-word"
-          },
-          children: label
-        },
-        `a-${key++}`
-      )
-    );
     lastIndex = match.index + whole.length;
   }
   if (lastIndex < text.length) out.push(text.slice(lastIndex));
   return out;
 }
+var BULLET_RE = /^\s*[-*•]\s+(.*)$/;
+var NUMBERED_RE = /^\s*(\d+)[.)]\s+(.*)$/;
+var HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
+var RULE_RE = /^\s*([-*_])\1{2,}\s*$/;
 function ChatMessageText({ children }) {
-  const clean = normalizeBotMarkdown(children);
-  const blocks = clean.split(/\n{2,}/).filter(Boolean);
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: blocks.map((block, blockIndex) => {
-    const lines = block.split("\n").filter(Boolean);
-    const isList = lines.every((line) => /^\s*([-*]|\d+\.)\s+/.test(line));
-    if (isList) {
-      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { style: { margin: "4px 0 8px", paddingLeft: 20 }, children: lines.map((line, lineIndex) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { style: { margin: "2px 0", lineHeight: 1.5 }, children: renderInline(line.replace(/^\s*([-*]|\d+\.)\s+/, "")) }, `line-${lineIndex}`)) }, `block-${blockIndex}`);
+  const lines = normalizeBotMarkdown(children).split("\n");
+  const nodes = [];
+  let text = [];
+  let list = null;
+  let n = 0;
+  const flushText = () => {
+    if (!text.length) return;
+    const key = `p-${n++}`;
+    nodes.push(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 8px", lineHeight: 1.5, whiteSpace: "pre-line" }, children: renderInline(text.join("\n"), key) }, key)
+    );
+    text = [];
+  };
+  const flushList = () => {
+    if (!list) return;
+    const key = `l-${n++}`;
+    const Tag = list.ordered ? "ol" : "ul";
+    nodes.push(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tag, { start: list.ordered ? list.start : void 0, style: { margin: "4px 0 8px", paddingLeft: 20 }, children: list.items.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { style: { margin: "2px 0", lineHeight: 1.5 }, children: renderInline(item, `${key}-${i}`) }, `${key}-${i}`)) }, key)
+    );
+    list = null;
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim() || RULE_RE.test(line)) {
+      flushText();
+      continue;
     }
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 8px", lineHeight: 1.5, whiteSpace: "pre-line" }, children: renderInline(block.replace(/^#{1,4}\s+/gm, "")) }, `block-${blockIndex}`);
-  }) });
+    const bullet = BULLET_RE.exec(line);
+    const numbered = !bullet && NUMBERED_RE.exec(line);
+    if (bullet || numbered) {
+      flushText();
+      const ordered = !!numbered;
+      if (list && list.ordered !== ordered) flushList();
+      if (!list) list = { ordered, start: numbered ? Number(numbered[1]) : 1, items: [] };
+      list.items.push(bullet ? bullet[1] : numbered[2]);
+      continue;
+    }
+    flushList();
+    const heading = HEADING_RE.exec(line);
+    if (heading) {
+      flushText();
+      const key = `h-${n++}`;
+      nodes.push(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { style: { margin: "0 0 6px", lineHeight: 1.45, fontWeight: 700 }, children: renderInline(heading[1], key) }, key)
+      );
+      continue;
+    }
+    text.push(line);
+  }
+  flushText();
+  flushList();
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: nodes });
 }
+
+// src/Chatbot.jsx
+var import_jsx_runtime2 = require("react/jsx-runtime");
 var ease = [0.22, 1, 0.36, 1];
 var MAX_FILE_SIZE = 25 * 1024 * 1024;
 var MAX_ATTACHMENTS = 4;
@@ -510,11 +579,11 @@ function relativeTime(ts) {
   return new Date(ts).toLocaleDateString();
 }
 function fileKindIcon(kind, size = 16) {
-  if (kind === "image") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.ImageIcon, { size });
-  if (kind === "video") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Film, { size });
-  if (kind === "audio") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Music, { size });
-  if (kind === "file") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.FileText, { size });
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.File, { size });
+  if (kind === "image") return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.ImageIcon, { size });
+  if (kind === "video") return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Film, { size });
+  if (kind === "audio") return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Music, { size });
+  if (kind === "file") return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.FileText, { size });
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.File, { size });
 }
 var isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function safeStorageGet(key, fallback) {
@@ -622,7 +691,7 @@ function parseHandoffAction(text) {
   return { cleanText, action };
 }
 function WhatsAppIcon({ size = 16 }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
     "svg",
     {
       viewBox: "0 0 24 24",
@@ -630,7 +699,7 @@ function WhatsAppIcon({ size = 16 }) {
       height: size,
       fill: "currentColor",
       "aria-hidden": "true",
-      children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345m-5.446 7.443h-.016c-1.77 0-3.524-.48-5.055-1.38l-.36-.214-3.75.975 1.005-3.645-.239-.375c-.99-1.576-1.516-3.391-1.516-5.26 0-5.445 4.455-9.885 9.942-9.885 2.654 0 5.145 1.035 7.021 2.91 1.875 1.875 2.909 4.367 2.909 7.02-.004 5.444-4.46 9.885-9.935 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.495-8.411" })
+      children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345m-5.446 7.443h-.016c-1.77 0-3.524-.48-5.055-1.38l-.36-.214-3.75.975 1.005-3.645-.239-.375c-.99-1.576-1.516-3.391-1.516-5.26 0-5.445 4.455-9.885 9.942-9.885 2.654 0 5.145 1.035 7.021 2.91 1.875 1.875 2.909 4.367 2.909 7.02-.004 5.444-4.46 9.885-9.935 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.495-8.411" })
     }
   );
 }
@@ -689,7 +758,7 @@ function HandoffCard({
   const waUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${waMessage}` : null;
   const statusColor = status === "failed" ? "#FF5C5C" : "#77D501";
   const statusBg = status === "failed" ? "rgba(255,92,92,0.15)" : "rgba(119,213,1,0.14)";
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     import_framer_motion.motion.div,
     {
       initial: { opacity: 0, y: 6 },
@@ -707,8 +776,8 @@ function HandoffCard({
         maxWidth: "92%"
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
             import_framer_motion.motion.div,
             {
               initial: { scale: 0.7 },
@@ -727,21 +796,21 @@ function HandoffCard({
                 border: `1px solid ${statusColor}`
               },
               children: [
-                status === "submitting" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                status === "submitting" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   import_framer_motion.motion.span,
                   {
                     animate: { rotate: 360 },
                     transition: { duration: 1, repeat: Infinity, ease: "linear" },
                     style: { display: "flex" },
-                    children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Loader2, { size: 13 })
+                    children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Loader2, { size: 13 })
                   }
                 ),
-                status === "failed" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.AlertCircle, { size: 14 }),
-                (status === "success" || status === "pending") && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Check, { size: 14, strokeWidth: 3 })
+                status === "failed" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.AlertCircle, { size: 14 }),
+                (status === "success" || status === "pending") && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Check, { size: 14, strokeWidth: 3 })
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
             "div",
             {
               style: {
@@ -755,12 +824,12 @@ function HandoffCard({
                 gap: 6
               },
               children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
                   status === "submitting" && "Creating your ticket\u2026",
                   status === "failed" && "Couldn't create the ticket",
                   (status === "success" || status === "pending") && "Ticket created"
                 ] }),
-                action.urgency === "high" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                action.urgency === "high" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "span",
                   {
                     style: {
@@ -780,9 +849,9 @@ function HandoffCard({
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Ticket, { size: 14, style: { color: "rgba(255,255,255,0.35)" } })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           "div",
           {
             style: {
@@ -791,17 +860,17 @@ function HandoffCard({
               lineHeight: 1.5
             },
             children: [
-              userInfo?.email ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              userInfo?.email ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
                 "We'll reply by email to",
                 " ",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#FFFFFF" }, children: userInfo.email }),
                 "."
-              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: "Our team will reply by email shortly." }),
-              waUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children: " Need a quicker response? Message us on WhatsApp." })
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: "Our team will reply by email shortly." }),
+              waUrl && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: " Need a quicker response? Message us on WhatsApp." })
             ]
           }
         ),
-        waUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        waUrl && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           import_framer_motion.motion.a,
           {
             href: waUrl,
@@ -830,7 +899,7 @@ function HandoffCard({
               transition: "box-shadow 0.2s ease"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(WhatsAppIcon, { size: 15 }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(WhatsAppIcon, { size: 15 }),
               "Message ",
               whatsappPerson,
               " on WhatsApp"
@@ -847,7 +916,7 @@ function AgentAvatar({ size = 36, agent }) {
   const showImage = avatarUrl && !failed;
   const radius = Math.round(size * 0.33);
   const iconSize = Math.round(size * 0.47);
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
     "div",
     {
       style: {
@@ -863,7 +932,7 @@ function AgentAvatar({ size = 36, agent }) {
         color: "#0A0E06",
         flexShrink: 0
       },
-      children: showImage ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      children: showImage ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         "img",
         {
           src: avatarUrl,
@@ -873,12 +942,12 @@ function AgentAvatar({ size = 36, agent }) {
           loading: "lazy",
           decoding: "async"
         }
-      ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Sparkles, { size: iconSize, strokeWidth: 2.2 })
+      ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Sparkles, { size: iconSize, strokeWidth: 2.2 })
     }
   );
 }
 function PersonAvatar({ size = 36, name }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
     "div",
     {
       "aria-label": name,
@@ -901,7 +970,7 @@ function PersonAvatar({ size = 36, name }) {
   );
 }
 function TypingDots() {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }, children: [0, 1, 2].map((i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }, children: [0, 1, 2].map((i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
     import_framer_motion.motion.span,
     {
       initial: { opacity: 0.3, y: 0 },
@@ -924,7 +993,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
   const isVideo = att.kind === "video";
   const tileBg = isDark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.04)";
   if (isImage) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       import_framer_motion.motion.div,
       {
         layout: true,
@@ -944,7 +1013,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           flexShrink: 0
         },
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "img",
             {
               src: att.url,
@@ -958,7 +1027,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               }
             }
           ),
-          removable && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          removable && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
             {
               type: "button",
@@ -979,7 +1048,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
                 alignItems: "center",
                 justifyContent: "center"
               },
-              children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.X, { size: 12, strokeWidth: 2.6 })
+              children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.X, { size: 12, strokeWidth: 2.6 })
             }
           )
         ]
@@ -987,7 +1056,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
     );
   }
   if (isVideo) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       import_framer_motion.motion.div,
       {
         layout: true,
@@ -1005,7 +1074,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           flexShrink: 0
         },
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "video",
             {
               src: att.url,
@@ -1014,7 +1083,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               style: { display: "block", width: "100%", maxHeight: compact ? 64 : 200, objectFit: "cover" }
             }
           ),
-          removable && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          removable && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
             {
               type: "button",
@@ -1035,14 +1104,14 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
                 alignItems: "center",
                 justifyContent: "center"
               },
-              children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.X, { size: 12, strokeWidth: 2.6 })
+              children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.X, { size: 12, strokeWidth: 2.6 })
             }
           )
         ]
       }
     );
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     import_framer_motion.motion.div,
     {
       layout: true,
@@ -1064,7 +1133,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
         flexShrink: 0
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: {
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: {
           width: 36,
           height: 36,
           borderRadius: 10,
@@ -1075,8 +1144,8 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
           justifyContent: "center",
           flexShrink: 0
         }, children: fileKindIcon(att.kind, 18) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "div",
             {
               style: {
@@ -1091,9 +1160,9 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               children: att.name
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }, children: formatBytes(att.size) })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }, children: formatBytes(att.size) })
         ] }),
-        !removable && att.url && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        !removable && att.url && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
           "a",
           {
             href: att.url,
@@ -1109,10 +1178,10 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
             },
             onMouseEnter: (e) => e.currentTarget.style.color = "#77D501",
             onMouseLeave: (e) => e.currentTarget.style.color = "rgba(255,255,255,0.55)",
-            children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Download, { size: 15 })
+            children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Download, { size: 15 })
           }
         ),
-        removable && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        removable && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
           "button",
           {
             type: "button",
@@ -1133,7 +1202,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
               alignItems: "center",
               justifyContent: "center"
             },
-            children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.X, { size: 11, strokeWidth: 2.6 })
+            children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.X, { size: 11, strokeWidth: 2.6 })
           }
         )
       ]
@@ -1170,7 +1239,7 @@ function LeadForm({ onSubmit, isDark }) {
     padding: "8px 12px",
     transition: "border-color 0.18s ease"
   });
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     import_framer_motion.motion.form,
     {
       onSubmit: handle,
@@ -1188,10 +1257,10 @@ function LeadForm({ onSubmit, isDark }) {
         maxWidth: "92%"
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13.5, color: "#FFFFFF", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: fieldStyle(nameValid || !touched), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.User, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 13.5, color: "#FFFFFF", lineHeight: 1.5, marginBottom: 4 }, children: "Quick \u2014 who am I chatting with? It helps me follow up if we get cut off." }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: fieldStyle(nameValid || !touched), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.User, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "input",
             {
               ref: nameRef,
@@ -1213,9 +1282,9 @@ function LeadForm({ onSubmit, isDark }) {
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: fieldStyle(emailValid || !touched), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Mail, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: fieldStyle(emailValid || !touched), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Mail, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "input",
             {
               type: "email",
@@ -1236,9 +1305,9 @@ function LeadForm({ onSubmit, isDark }) {
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: fieldStyle(true), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Building2, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: fieldStyle(true), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Building2, { size: 14, style: { color: "rgba(255,255,255,0.55)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "input",
             {
               type: "text",
@@ -1260,7 +1329,7 @@ function LeadForm({ onSubmit, isDark }) {
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
           import_framer_motion.motion.button,
           {
             type: "submit",
@@ -1283,21 +1352,21 @@ function LeadForm({ onSubmit, isDark }) {
             children: submitting ? "Saving\u2026" : "Continue"
           }
         ),
-        touched && (!nameValid || !emailValid) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, color: "#FF9090" }, children: !nameValid ? "Please enter your name." : "Please enter a valid email." })
+        touched && (!nameValid || !emailValid) && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 11.5, color: "#FF9090" }, children: !nameValid ? "Please enter your name." : "Please enter a valid email." })
       ]
     }
   );
 }
 function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, onRetry }) {
   if (msg.role === "system" && msg.kind === "notice") {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
       import_framer_motion.motion.div,
       {
         initial: { opacity: 0, y: 4 },
         animate: { opacity: 1, y: 0 },
         transition: { duration: 0.3, ease },
         style: { display: "flex", justifyContent: "center", padding: "2px 0" },
-        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: {
+        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: {
           fontSize: 11.5,
           color: "#C9F08F",
           padding: "4px 10px",
@@ -1309,7 +1378,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
     );
   }
   if (msg.role === "system" && msg.kind === "lead-form-submitted") {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       import_framer_motion.motion.div,
       {
         initial: { opacity: 0, y: 4 },
@@ -1334,7 +1403,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
   const botColor = "#FFFFFF";
   const botBorder = "1px solid rgba(255,255,255,0.07)";
   const onlyImages = hasAttachments && !hasText && msg.attachments.every((a) => a.kind === "image" || a.kind === "video");
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     import_framer_motion.motion.div,
     {
       initial: { opacity: 0, y: 8, scale: 0.96 },
@@ -1348,11 +1417,11 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
         gap: 0
       },
       children: [
-        isHuman && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "#C9F08F", margin: "0 0 4px 4px", fontWeight: 600 }, children: [
+        isHuman && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { fontSize: 11, color: "#C9F08F", margin: "0 0 4px 4px", fontWeight: 600 }, children: [
           msg.author || "ProPrompt",
           " \xB7 ProPrompt team"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           "div",
           {
             style: {
@@ -1373,20 +1442,20 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
               gap: hasText && hasAttachments ? 8 : 0
             },
             children: [
-              hasAttachments && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: msg.attachments.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AttachmentTile, { att: a, isDark }, a.id)) }),
+              hasAttachments && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: msg.attachments.map((a) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AttachmentTile, { att: a, isDark }, a.id)) }),
               hasText && (isUser || isHuman ? (
                 // User and team text stay plain — keeps newlines, no markdown surprises.
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { whiteSpace: "pre-wrap" }, children: msg.content })
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { whiteSpace: "pre-wrap" }, children: msg.content })
               ) : (
                 // Bot content is rendered as markdown. The wrapper resets the
                 // default last-child margin so the bubble doesn't have a trailing gap.
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chatbot-md", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChatMessageText, { children: msg.content }) })
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "chatbot-md", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ChatMessageText, { children: msg.content }) })
               ))
             ]
           }
         ),
-        isUser && msg.status === "sending" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }, children: "Sending\u2026" }),
-        isUser && msg.status === "failed" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        isUser && msg.status === "sending" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4 }, children: "Sending\u2026" }),
+        isUser && msg.status === "failed" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           "button",
           {
             type: "button",
@@ -1405,12 +1474,12 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, 
               padding: 0
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.RotateCcw, { size: 12 }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.RotateCcw, { size: 12 }),
               " Not sent. Tap to retry"
             ]
           }
         ),
-        hasAction && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        hasAction && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
           HandoffCard,
           {
             msgId: msg.id,
@@ -1434,7 +1503,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
     () => [...chats].sort((a, b) => b.updatedAt - a.updatedAt),
     [chats]
   );
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     import_framer_motion.motion.div,
     {
       initial: { x: -40, opacity: 0 },
@@ -1448,7 +1517,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
         overflow: "hidden"
       },
       children: [
-        canCreateNew && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "14px 14px 8px" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        canCreateNew && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "14px 14px 8px" }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           import_framer_motion.motion.button,
           {
             type: "button",
@@ -1473,12 +1542,12 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               boxShadow: "0 6px 20px rgba(119,213,1,0.28)"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Plus, { size: 16, strokeWidth: 2.4 }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Plus, { size: 16, strokeWidth: 2.4 }),
               "New chat"
             ]
           }
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chatbot-scroll", style: { flex: 1, overflowY: "auto", padding: "4px 8px 14px" }, children: sorted.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: {
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "chatbot-scroll", style: { flex: 1, overflowY: "auto", padding: "4px 8px 14px" }, children: sorted.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: {
           padding: "40px 20px",
           textAlign: "center",
           color: "rgba(255,255,255,0.55)",
@@ -1487,7 +1556,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
           const isActive = chat.id === activeChatId;
           const isConfirm = confirmId === chat.id;
           const preview = lastMessagePreview(chat);
-          return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             import_framer_motion.motion.div,
             {
               layout: true,
@@ -1509,9 +1578,9 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
               onClick: () => {
                 if (!isConfirm) onSelect(chat.id);
               },
-              children: !isConfirm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              children: !isConfirm ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                     "div",
                     {
                       style: {
@@ -1528,9 +1597,9 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       children: chat.title
                     }
                   ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: relativeTime(chat.updatedAt) })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "div",
                   {
                     style: {
@@ -1545,7 +1614,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                     children: preview || "\u2014"
                   }
                 ),
-                sorted.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                sorted.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "button",
                   {
                     type: "button",
@@ -1581,19 +1650,19 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                       e.currentTarget.style.background = "transparent";
                       e.currentTarget.style.color = "rgba(255,255,255,0.35)";
                     },
-                    children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Trash2, { size: 14 })
+                    children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Trash2, { size: 14 })
                   }
                 )
-              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                 import_framer_motion.motion.div,
                 {
                   initial: { opacity: 0 },
                   animate: { opacity: 1 },
                   style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "#FFFFFF" }, children: "Delete this chat?" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 12.5, color: "#FFFFFF" }, children: "Delete this chat?" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", gap: 6 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                         "button",
                         {
                           type: "button",
@@ -1614,7 +1683,7 @@ function ChatListView({ chats, activeChatId, onSelect, onNew, onDelete, isDark, 
                           children: "Cancel"
                         }
                       ),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                         "button",
                         {
                           type: "button",
@@ -2158,7 +2227,7 @@ ${visitorTurn}` : visitorTurn;
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !typing;
   const showSuggestions = activeChat && activeChat.messages.length === 1 && !typing;
   const activeChatIsEmpty = !!activeChat && !activeChat.messages.some((m) => m.role === "user");
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     "div",
     {
       "data-zara-root": true,
@@ -2173,7 +2242,7 @@ ${visitorTurn}` : visitorTurn;
         textAlign: "left"
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: !open && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { children: !open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           import_framer_motion.motion.button,
           {
             initial: { opacity: 0, scale: 0.6, y: 20 },
@@ -2202,7 +2271,7 @@ ${visitorTurn}` : visitorTurn;
               boxShadow: "0 10px 32px rgba(119,213,1,0.45), 0 2px 6px rgba(0,0,0,0.3)"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 import_framer_motion.motion.span,
                 {
                   "aria-hidden": true,
@@ -2217,8 +2286,8 @@ ${visitorTurn}` : visitorTurn;
                   }
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.MessageCircle, { size: 24, strokeWidth: 2.2 }),
-              unread && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.MessageCircle, { size: 24, strokeWidth: 2.2 }),
+              unread && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 import_framer_motion.motion.span,
                 {
                   initial: { scale: 0 },
@@ -2240,7 +2309,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "fab"
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { children: !open && helperVisible && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           import_framer_motion.motion.div,
           {
             initial: { opacity: 0, x: 10, y: 4 },
@@ -2276,9 +2345,9 @@ ${visitorTurn}` : visitorTurn;
               setOpen(true);
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 48, agent }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AgentAvatar, { size: 48, agent }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { flex: 1 }, children: "Hi, I'm Zara. Need help? Let's chat." }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 "span",
                 {
                   "aria-hidden": true,
@@ -2299,7 +2368,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "zara-helper"
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: open && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { children: open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
           import_framer_motion.motion.div,
           {
             initial: { opacity: 0, y: 24, scale: 0.96 },
@@ -2333,7 +2402,7 @@ ${visitorTurn}` : visitorTurn;
               transformOrigin: "bottom right"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { children: dragOver && view === "chat" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                 import_framer_motion.motion.div,
                 {
                   initial: { opacity: 0 },
@@ -2356,7 +2425,7 @@ ${visitorTurn}` : visitorTurn;
                     pointerEvents: "none"
                   },
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                       import_framer_motion.motion.div,
                       {
                         animate: { y: [0, -4, 0] },
@@ -2372,15 +2441,15 @@ ${visitorTurn}` : visitorTurn;
                           justifyContent: "center",
                           border: "1px solid rgba(119,213,1,0.24)"
                         },
-                        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.UploadCloud, { size: 22 })
+                        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.UploadCloud, { size: 22 })
                       }
                     ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "#FFFFFF" }, children: "Drop to attach" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "rgba(255,255,255,0.55)" }, children: "Images, video, audio, or documents" })
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "#FFFFFF" }, children: "Drop to attach" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 12, color: "rgba(255,255,255,0.55)" }, children: "Images, video, audio, or documents" })
                   ]
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 "div",
                 {
                   style: {
@@ -2389,8 +2458,8 @@ ${visitorTurn}` : visitorTurn;
                     borderBottom: "1px solid rgba(255,255,255,0.07)",
                     background: headerGradient
                   },
-                  children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
-                    view === "chat" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+                    view === "chat" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                       "button",
                       {
                         onClick: () => setView("list"),
@@ -2419,9 +2488,9 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.MessagesSquare, { size: 15 })
+                        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.MessagesSquare, { size: 15 })
                       }
-                    ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                       "button",
                       {
                         onClick: () => setView("chat"),
@@ -2450,13 +2519,13 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.ArrowLeft, { size: 15 })
+                        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.ArrowLeft, { size: 15 })
                       }
                     ),
-                    view === "chat" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                      activeChat?.assignee ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PersonAvatar, { size: 36, name: activeChat.assignee.name }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 36, agent }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    view === "chat" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                      activeChat?.assignee ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PersonAvatar, { size: 36, name: activeChat.assignee.name }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AgentAvatar, { size: 36, agent }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                           "div",
                           {
                             style: {
@@ -2468,7 +2537,7 @@ ${visitorTurn}` : visitorTurn;
                             children: activeChat?.assignee ? `${activeChat.assignee.name} \xB7 ProPrompt team` : agent.name
                           }
                         ),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                           "div",
                           {
                             style: {
@@ -2483,15 +2552,15 @@ ${visitorTurn}` : visitorTurn;
                           }
                         )
                       ] })
-                    ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14.5, fontWeight: 700, color: "#FFFFFF" }, children: "Your chats" }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.55)", marginTop: 1 }, children: [
+                    ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 14.5, fontWeight: 700, color: "#FFFFFF" }, children: "Your chats" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.55)", marginTop: 1 }, children: [
                         chats.length,
                         " ",
                         chats.length === 1 ? "conversation" : "conversations"
                       ] })
                     ] }),
-                    view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    view === "chat" && !activeChatIsEmpty && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                       "button",
                       {
                         onClick: newChat,
@@ -2520,10 +2589,10 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Plus, { size: 15 })
+                        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Plus, { size: 15 })
                       }
                     ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                       "button",
                       {
                         onClick: () => setOpen(false),
@@ -2551,13 +2620,13 @@ ${visitorTurn}` : visitorTurn;
                           e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                           e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
                         },
-                        children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.X, { size: 16 })
+                        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.X, { size: 16 })
                       }
                     )
                   ] })
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { mode: "wait", initial: false, children: view === "list" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 ChatListView,
                 {
                   chats,
@@ -2569,7 +2638,7 @@ ${visitorTurn}` : visitorTurn;
                   canCreateNew: !chats.some((c) => !c.messages.some((m) => m.role === "user"))
                 },
                 "list-view"
-              ) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                 import_framer_motion.motion.div,
                 {
                   initial: { opacity: 0, x: 20 },
@@ -2578,7 +2647,7 @@ ${visitorTurn}` : visitorTurn;
                   transition: { duration: 0.24, ease },
                   style: { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                       "div",
                       {
                         ref: scrollRef,
@@ -2594,19 +2663,19 @@ ${visitorTurn}` : visitorTurn;
                         children: [
                           activeChat?.messages.map((m) => {
                             if (m.role === "system" && m.kind === "lead-form") {
-                              return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                 import_framer_motion.motion.div,
                                 {
                                   initial: { opacity: 0 },
                                   animate: { opacity: 1 },
                                   transition: { duration: 0.3 },
                                   style: { display: "flex", justifyContent: "flex-start" },
-                                  children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LeadForm, { onSubmit: submitLead, isDark })
+                                  children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeadForm, { onSubmit: submitLead, isDark })
                                 },
                                 m.id
                               );
                             }
-                            return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                               MessageBubble,
                               {
                                 msg: m,
@@ -2625,14 +2694,14 @@ ${visitorTurn}` : visitorTurn;
                               m.id
                             );
                           }),
-                          typing && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          typing && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                             import_framer_motion.motion.div,
                             {
                               initial: { opacity: 0, y: 6 },
                               animate: { opacity: 1, y: 0 },
                               transition: { duration: 0.25 },
                               style: { display: "flex", justifyContent: "flex-start" },
-                              children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                              children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                 "div",
                                 {
                                   style: {
@@ -2641,19 +2710,19 @@ ${visitorTurn}` : visitorTurn;
                                     background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,26,8,0.04)",
                                     border: "1px solid rgba(255,255,255,0.07)"
                                   },
-                                  children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TypingDots, {})
+                                  children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(TypingDots, {})
                                 }
                               )
                             }
                           ),
-                          showSuggestions && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          showSuggestions && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                             import_framer_motion.motion.div,
                             {
                               initial: { opacity: 0, y: 8 },
                               animate: { opacity: 1, y: 0 },
                               transition: { delay: 0.15, duration: 0.4, ease },
                               style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 },
-                              children: agent.suggestions.map((s, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                              children: agent.suggestions.map((s, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                 import_framer_motion.motion.button,
                                 {
                                   initial: { opacity: 0, y: 6 },
@@ -2683,7 +2752,7 @@ ${visitorTurn}` : visitorTurn;
                         ]
                       }
                     ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                       "form",
                       {
                         onSubmit,
@@ -2693,7 +2762,7 @@ ${visitorTurn}` : visitorTurn;
                           background: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.015)"
                         },
                         children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { initial: false, children: pendingAttachments.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                             import_framer_motion.motion.div,
                             {
                               layout: true,
@@ -2702,7 +2771,7 @@ ${visitorTurn}` : visitorTurn;
                               exit: { opacity: 0, height: 0 },
                               transition: { duration: 0.22, ease },
                               style: { display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 10, overflow: "hidden" },
-                              children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_framer_motion.AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                              children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_framer_motion.AnimatePresence, { initial: false, children: pendingAttachments.map((att) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                 AttachmentTile,
                                 {
                                   att,
@@ -2714,7 +2783,7 @@ ${visitorTurn}` : visitorTurn;
                               )) })
                             }
                           ) }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
                             "div",
                             {
                               style: {
@@ -2736,7 +2805,7 @@ ${visitorTurn}` : visitorTurn;
                                 e.currentTarget.style.boxShadow = "none";
                               },
                               children: [
-                                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                   import_framer_motion.motion.button,
                                   {
                                     type: "button",
@@ -2769,10 +2838,10 @@ ${visitorTurn}` : visitorTurn;
                                       e.currentTarget.style.background = "transparent";
                                       e.currentTarget.style.color = "rgba(255,255,255,0.55)";
                                     },
-                                    children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.Paperclip, { size: 17 })
+                                    children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.Paperclip, { size: 17 })
                                   }
                                 ),
-                                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                   "input",
                                   {
                                     ref: inputRef,
@@ -2794,7 +2863,7 @@ ${visitorTurn}` : visitorTurn;
                                     }
                                   }
                                 ),
-                                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                                   import_framer_motion.motion.button,
                                   {
                                     type: "submit",
@@ -2816,13 +2885,13 @@ ${visitorTurn}` : visitorTurn;
                                       flexShrink: 0,
                                       transition: "background 0.2s ease, color 0.2s ease"
                                     },
-                                    children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_lucide_react.ArrowUp, { size: 16, strokeWidth: 2.6 })
+                                    children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_lucide_react.ArrowUp, { size: 16, strokeWidth: 2.6 })
                                   }
                                 )
                               ]
                             }
                           ),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                             "input",
                             {
                               ref: fileInputRef,
@@ -2836,7 +2905,7 @@ ${visitorTurn}` : visitorTurn;
                               "aria-hidden": "true"
                             }
                           ),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                             "div",
                             {
                               style: {
@@ -2860,7 +2929,7 @@ ${visitorTurn}` : visitorTurn;
           },
           "panel"
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: `
         .chatbot-scroll::-webkit-scrollbar { width: 6px; }
         .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
         .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
