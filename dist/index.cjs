@@ -877,6 +877,29 @@ function AgentAvatar({ size = 36, agent }) {
     }
   );
 }
+function PersonAvatar({ size = 36, name }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    "div",
+    {
+      "aria-label": name,
+      style: {
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.33),
+        flexShrink: 0,
+        background: "linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)",
+        boxShadow: "0 4px 12px rgba(119,213,1,0.35)",
+        color: "#0A0E06",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: Math.round(size * 0.44)
+      },
+      children: (name || "?").trim().charAt(0).toUpperCase()
+    }
+  );
+}
 function TypingDots() {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 4, alignItems: "center", padding: "4px 2px" }, children: [0, 1, 2].map((i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
     import_framer_motion.motion.span,
@@ -2431,7 +2454,7 @@ ${visitorTurn}` : visitorTurn;
                       }
                     ),
                     view === "chat" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 36, agent }),
+                      activeChat?.assignee ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PersonAvatar, { size: 36, name: activeChat.assignee.name }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentAvatar, { size: 36, agent }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                           "div",

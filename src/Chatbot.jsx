@@ -584,6 +584,24 @@ function AgentAvatar({ size = 36, agent }) {
   )
 }
 
+// A ProPrompt team member handling the chat: their initial, in Zara's green.
+function PersonAvatar({ size = 36, name }) {
+  return (
+    <div
+      aria-label={name}
+      style={{
+        width: size, height: size, borderRadius: Math.round(size * 0.33), flexShrink: 0,
+        background: 'linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)',
+        boxShadow: '0 4px 12px rgba(119,213,1,0.35)', color: '#0A0E06',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontWeight: 700, fontSize: Math.round(size * 0.44),
+      }}
+    >
+      {(name || '?').trim().charAt(0).toUpperCase()}
+    </div>
+  )
+}
+
 function TypingDots() {
   return (
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 2px' }}>
@@ -2052,7 +2070,9 @@ export default function Chatbot({
 
                 {view === 'chat' ? (
                   <>
-                    <AgentAvatar size={36} agent={agent} />
+                    {activeChat?.assignee
+                      ? <PersonAvatar size={36} name={activeChat.assignee.name} />
+                      : <AgentAvatar size={36} agent={agent} />}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
