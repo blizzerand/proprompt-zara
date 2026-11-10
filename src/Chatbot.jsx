@@ -23,6 +23,8 @@ import {
   AlertCircle,
   Loader2,
   Ticket,
+  Building2,
+  RotateCcw,
 } from 'lucide-react'
 import { resolveAgentConfig } from './zaraAgent'
 import { ZaraClient } from './zaraClient'
@@ -135,6 +137,14 @@ const STORAGE_KEY_CHATS = 'pp_chatbot_chats_v1'
 const STORAGE_KEY_ACTIVE = 'pp_chatbot_active_v1'
 const STORAGE_KEY_USER = 'pp_chatbot_user_v1'
 
+// How often the widget checks for a ProPrompt team member's replies: often
+// while the chat is open, less while it is closed, and not at all for a chat
+// idle for two hours (unless a person is handling it) or in a hidden tab.
+// A reply the chat does not pick up within a minute is emailed instead.
+const POLL_OPEN_MS = 5000
+const POLL_CLOSED_MS = 20000
+const RECENT_CHAT_MS = 2 * 60 * 60 * 1000
+
 let attachmentSeq = 0
 const newAttachmentId = () => `att-${Date.now()}-${attachmentSeq++}`
 const newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
@@ -225,6 +235,22 @@ function lastMessagePreview(chat) {
     if (m.attachments?.length) return `📎 ${m.attachments.length} attachment${m.attachments.length > 1 ? 's' : ''}`
   }
   return ''
+}
+
+// What Zara needs when a person hands a chat back: the turns since they took
+// over, as a note in front of the visitor's next message (Zara's own
+// conversation never saw them).
+function handbackNote(messages, personName) {
+  const lines = messages
+    .filter(m => (m.role === 'user' || m.role === 'human') && m.content)
+    .slice(-20)
+    .map(m => {
+      const who = m.role === 'user' ? 'Visitor' : `${m.author || personName} (ProPrompt team)`
+      const text = m.content.length > 500 ? `${m.content.slice(0, 500)}…` : m.content
+      return `${who}: ${text}`
+    })
+  if (!lines.length) return null
+  return `[Note for Zara: ${personName} from the ProPrompt team handled this chat for a while and has handed it back to you. What was said meanwhile:\n${lines.join('\n')}\nCarry on from there without repeating what was already covered.]`
 }
 
 // Compose the user turn we send to the agent. Attachments are noted in
@@ -558,6 +584,24 @@ function AgentAvatar({ size = 36, agent }) {
   )
 }
 
+// A ProPrompt team member handling the chat: their initial, in Zara's green.
+function PersonAvatar({ size = 36, name }) {
+  return (
+    <div
+      aria-label={name}
+      style={{
+        width: size, height: size, borderRadius: Math.round(size * 0.33), flexShrink: 0,
+        background: 'linear-gradient(135deg, #AAEE40 0%, #77D501 50%, #4DB800 100%)',
+        boxShadow: '0 4px 12px rgba(119,213,1,0.35)', color: '#0A0E06',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontWeight: 700, fontSize: Math.round(size * 0.44),
+      }}
+    >
+      {(name || '?').trim().charAt(0).toUpperCase()}
+    </div>
+  )
+}
+
 function TypingDots() {
   return (
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 2px' }}>
@@ -735,6 +779,7 @@ function AttachmentTile({ att, onRemove, isDark, compact }) {
 function LeadForm({ onSubmit, isDark }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [company, setCompany] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [touched, setTouched] = useState(false)
   const nameRef = useRef(null)
@@ -750,7 +795,7 @@ function LeadForm({ onSubmit, isDark }) {
     setTouched(true)
     if (!ready) return
     setSubmitting(true)
-    setTimeout(() => onSubmit({ name: name.trim(), email: email.trim() }), 250)
+    setTimeout(() => onSubmit({ name: name.trim(), email: email.trim(), company: company.trim() || null }), 250)
   }
 
   const fieldStyle = (valid) => ({
@@ -807,6 +852,21 @@ function LeadForm({ onSubmit, isDark }) {
           }}
         />
       </div>
+      <div style={fieldStyle(true)}>
+        <Building2 size={14} style={{ color: 'rgba(255,255,255,0.55)' }} />
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Company (optional)"
+          aria-label="Company"
+          maxLength={120}
+          style={{
+            flex: 1, background: 'transparent', border: 'none', outline: 'none',
+            color: '#FFFFFF', fontFamily: 'inherit', fontSize: 13.5, padding: 0,
+          }}
+        />
+      </div>
       <Motion.button
         type="submit"
         disabled={!ready}
@@ -833,7 +893,26 @@ function LeadForm({ onSubmit, isDark }) {
   )
 }
 
-function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }) {
+function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig, onRetry }) {
+  // A person joined or left the chat.
+  if (msg.role === 'system' && msg.kind === 'notice') {
+    return (
+      <Motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease }}
+        style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}
+      >
+        <div style={{
+          fontSize: 11.5, color: '#C9F08F', padding: '4px 10px', borderRadius: 999,
+          background: 'rgba(119,213,1,0.10)', border: '1px solid rgba(119,213,1,0.22)',
+        }}>
+          {msg.content}
+        </div>
+      </Motion.div>
+    )
+  }
+
   if (msg.role === 'system' && msg.kind === 'lead-form-submitted') {
     return (
       <Motion.div
@@ -848,6 +927,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
   }
 
   const isUser = msg.role === 'user'
+  const isHuman = msg.role === 'human' // a ProPrompt team member
   const hasText = !!msg.content
   const hasAttachments = msg.attachments && msg.attachments.length > 0
   const hasAction = !isUser && msg.action && msg.action.type === 'human_handoff'
@@ -872,6 +952,11 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
         width: '100%', gap: 0,
       }}
     >
+      {isHuman && (
+        <div style={{ fontSize: 11, color: '#C9F08F', margin: '0 0 4px 4px', fontWeight: 600 }}>
+          {msg.author || 'ProPrompt'} · ProPrompt team
+        </div>
+      )}
       <div
         style={{
           maxWidth: '85%',
@@ -879,7 +964,7 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
           borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
           background: onlyImages ? 'transparent' : (isUser ? userBg : botBg),
           color: isUser ? userColor : botColor,
-          border: onlyImages || isUser ? 'none' : botBorder,
+          border: onlyImages || isUser ? 'none' : (isHuman ? '1px solid rgba(119,213,1,0.28)' : botBorder),
           fontSize: 14, lineHeight: 1.5, fontWeight: 450,
           letterSpacing: '-0.005em', wordBreak: 'break-word',
           boxShadow: !onlyImages && isUser
@@ -896,8 +981,8 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
           </div>
         )}
         {hasText && (
-          isUser ? (
-            // User text stays plain — keeps newlines, no markdown surprises.
+          isUser || isHuman ? (
+            // User and team text stay plain — keeps newlines, no markdown surprises.
             <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
           ) : (
             // Bot content is rendered as markdown. The wrapper resets the
@@ -908,6 +993,23 @@ function MessageBubble({ msg, isDark, userInfo, onWhatsappClick, handoffConfig }
           )
         )}
       </div>
+
+      {isUser && msg.status === 'sending' && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>Sending…</div>
+      )}
+      {isUser && msg.status === 'failed' && (
+        <button
+          type="button"
+          onClick={() => onRetry && onRetry(msg.id)}
+          style={{
+            marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 11.5, color: '#FF9090', background: 'transparent', border: 'none',
+            cursor: 'pointer', fontFamily: 'inherit', padding: 0,
+          }}
+        >
+          <RotateCcw size={12} /> Not sent. Tap to retry
+        </button>
+      )}
 
       {/* Human handoff card — only rendered for bot messages with an action. */}
       {hasAction && (
@@ -1311,6 +1413,127 @@ export default function Chatbot({
     setChats(prev => prev.map(c => c.id === chatId ? { ...updater(c), updatedAt: Date.now() } : c))
   }, [])
 
+  // ── A ProPrompt team member handling the chat ───────────────────────────
+  // The backend says who (if anyone) is handling a chat and holds their
+  // replies; the widget checks in while the chat is in use.
+  const chatsRef = useRef(chats)
+  chatsRef.current = chats
+  const openRef = useRef(open)
+  openRef.current = open
+  const viewRef = useRef(view)
+  viewRef.current = view
+
+  const applyChatUpdates = useCallback((chatId, updates) => {
+    setChats(prev => prev.map(c => {
+      if (c.id !== chatId) return c
+      const before = c.assignee || null
+      const after = updates.assignee || null
+      const known = new Set(c.messages.map(m => m.id))
+      const fresh = (updates.messages || [])
+        .filter(m => !known.has(m.id))
+        .map(m => ({ id: m.id, role: 'human', author: m.author_name, content: m.content, at: m.occurred_at }))
+      if (!fresh.length && (before?.name || null) === (after?.name || null)) return c
+
+      let messages = c.messages
+      let takeoverAt = c.takeoverAt ?? null
+      let handbackContext = c.handbackContext || null
+      if (!before && after) {
+        takeoverAt = messages.length
+        messages = [...messages, { id: newId('n'), role: 'system', kind: 'notice', content: `${after.name} from ProPrompt has joined the chat` }]
+      }
+      messages = [...messages, ...fresh]
+      if (before && !after) {
+        handbackContext = handbackNote(messages.slice(takeoverAt ?? 0), before.name)
+        takeoverAt = null
+        messages = [...messages, { id: newId('n'), role: 'system', kind: 'notice', content: "You're back with Zara" }]
+      }
+      return {
+        ...c,
+        assignee: after,
+        takeoverAt,
+        handbackContext,
+        humanCursor: fresh.length ? fresh[fresh.length - 1].at : (c.humanCursor || null),
+        messages,
+        updatedAt: Date.now(),
+      }
+    }))
+  }, [])
+
+  const activeChatKnown = !!activeChat?.messages.some(m => m.role === 'user')
+  const activeChatAssigned = !!activeChat?.assignee
+  useEffect(() => {
+    if (!activeChat?.id || !activeChatKnown) return undefined
+    const chatId = activeChat.id
+    let stopped = false
+    let timer = null
+
+    const tick = async () => {
+      clearTimeout(timer)
+      if (stopped) return
+      const chat = chatsRef.current.find(c => c.id === chatId)
+      const visible = typeof document === 'undefined' || !document.hidden
+      const inUse = open || activeChatAssigned || (chat && Date.now() - (chat.updatedAt || 0) < RECENT_CHAT_MS)
+      if (chat && visible && inUse) {
+        const updates = await analytics.fetchChatUpdates(chatId, chat.humanCursor || null)
+        if (!stopped && updates) {
+          const known = new Set(chat.messages.map(m => m.id))
+          const hasNew = (updates.messages || []).some(m => !known.has(m.id))
+          applyChatUpdates(chatId, updates)
+          if (hasNew && (!openRef.current || viewRef.current !== 'chat')) setUnread(true)
+        }
+      }
+      if (!stopped) timer = setTimeout(tick, open ? POLL_OPEN_MS : POLL_CLOSED_MS)
+    }
+
+    const onVisible = () => { if (!document.hidden) tick() }
+    document.addEventListener('visibilitychange', onVisible)
+    tick()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [activeChat?.id, activeChatKnown, activeChatAssigned, open, analytics, applyChatUpdates])
+
+  // The "you have a reply" email links back with ?zara=open&chat=<id>: open
+  // that chat (when it is in this browser), then tidy the address bar.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let params
+    try { params = new URLSearchParams(window.location.search) } catch { return }
+    if (params.get('zara') !== 'open') return
+    const wanted = params.get('chat')
+    if (wanted && chatsRef.current.some(c => c.id === wanted)) setActiveChatId(wanted)
+    setView('chat')
+    setOpen(true)
+    params.delete('zara')
+    params.delete('chat')
+    const query = params.toString()
+    try {
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`)
+    } catch { /* noop */ }
+  }, [])
+
+  const markSent = useCallback((chatId, messageId, ok, payload) => {
+    updateChat(chatId, c => ({
+      ...c,
+      messages: c.messages.map(m => m.id === messageId
+        ? { ...m, status: ok ? 'sent' : 'failed', retryPayload: ok ? undefined : payload }
+        : m),
+    }))
+  }, [updateChat])
+
+  const retrySend = useCallback((messageId) => {
+    const chat = chatsRef.current.find(c => c.messages.some(m => m.id === messageId))
+    const msg = chat?.messages.find(m => m.id === messageId)
+    if (!chat || !msg?.retryPayload) return
+    updateChat(chat.id, c => ({
+      ...c,
+      messages: c.messages.map(m => m.id === messageId ? { ...m, status: 'sending' } : m),
+    }))
+    analytics.resend(msg.retryPayload).then(ok => markSent(chat.id, messageId, ok, msg.retryPayload))
+  }, [analytics, updateChat, markSent])
+
   const addFiles = useCallback((fileList) => {
     const files = Array.from(fileList || [])
     if (files.length === 0) return
@@ -1349,11 +1572,49 @@ export default function Chatbot({
 
     const isFirstUserMessage = !activeChat.messages.some(m => m.role === 'user')
     const shouldAskLead = isFirstUserMessage && !userInfo && !activeChat.leadAsked
+    const nextTitle = (c) => c.messages.some(m => m.role === 'user')
+      ? c.title
+      : deriveTitle(trimmed || sentAttachments[0]?.name || 'New chat')
+
+    // A ProPrompt team member is handling this chat: the message goes to the
+    // backend only (Zara stays quiet), sent now and retried if it fails.
+    // Their reply arrives through the update check.
+    if (activeChat.assignee) {
+      const chatId = activeChat.id
+      updateChat(chatId, c => ({
+        ...c,
+        title: nextTitle(c),
+        messages: [...c.messages, { ...userMsg, status: 'sending' }],
+      }))
+      setInput('')
+      setPendingAttachments([])
+      analytics.messageSentNow({
+        chatId,
+        conversationId: activeChat.conversationId || null,
+        messageId: userMsg.id,
+        content: trimmed,
+        attachments: sentAttachments,
+      }).then(({ ok, payload }) => markSent(chatId, userMsg.id, ok, payload))
+      if (shouldAskLead) {
+        setTimeout(() => {
+          updateChat(chatId, c => ({
+            ...c,
+            leadAsked: true,
+            messages: [...c.messages, { id: newId('lead'), role: 'system', kind: 'lead-form' }],
+          }))
+        }, 700)
+      }
+      return
+    }
+
+    // Back with Zara after a person handled the chat: tell Zara what was said.
+    const handback = activeChat.handbackContext || null
 
     updateChat(activeChat.id, c => ({
       ...c,
-      title: c.messages.some(m => m.role === 'user') ? c.title : deriveTitle(trimmed || sentAttachments[0]?.name || 'New chat'),
+      title: nextTitle(c),
       messages: [...c.messages, userMsg],
+      handbackContext: null,
     }))
 
     setInput('')
@@ -1362,7 +1623,8 @@ export default function Chatbot({
 
     const chatId = activeChat.id
     const existingConversationId = activeChat.conversationId
-    const userTurnText = composeUserTurn(trimmed, sentAttachments)
+    const visitorTurn = composeUserTurn(trimmed, sentAttachments)
+    const userTurnText = handback ? `${handback}\n\n${visitorTurn}` : visitorTurn
 
     analytics.messageSent({
       chatId,
@@ -1431,11 +1693,11 @@ export default function Chatbot({
         }, 700)
       }
     })()
-  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat])
+  }, [open, view, typing, pendingAttachments, activeChat, userInfo, updateChat, analytics, markSent])
 
-  const submitLead = useCallback(({ name, email }) => {
-    setUserInfo({ name, email, savedAt: Date.now() })
-    analytics.leadCaptured({ name, email })
+  const submitLead = useCallback(({ name, email, company }) => {
+    setUserInfo({ name, email, ...(company ? { company } : {}), savedAt: Date.now() })
+    analytics.leadCaptured({ name, email, company })
     if (!activeChat) return
     const chatId = activeChat.id
     updateChat(chatId, c => ({
@@ -1808,7 +2070,9 @@ export default function Chatbot({
 
                 {view === 'chat' ? (
                   <>
-                    <AgentAvatar size={36} agent={agent} />
+                    {activeChat?.assignee
+                      ? <PersonAvatar size={36} name={activeChat.assignee.name} />
+                      : <AgentAvatar size={36} agent={agent} />}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
@@ -1817,7 +2081,7 @@ export default function Chatbot({
                           letterSpacing: '-0.01em',
                         }}
                       >
-                        {agent.name}
+                        {activeChat?.assignee ? `${activeChat.assignee.name} · ProPrompt team` : agent.name}
                       </div>
                       <div
                         style={{
@@ -1825,9 +2089,11 @@ export default function Chatbot({
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}
                       >
-                        {activeChat?.title && activeChat.title !== 'New chat'
-                          ? activeChat.title
-                          : agent.title}
+                        {activeChat?.assignee
+                          ? 'A person from ProPrompt is helping you'
+                          : activeChat?.title && activeChat.title !== 'New chat'
+                            ? activeChat.title
+                            : agent.title}
                       </div>
                     </div>
                   </>
@@ -1945,6 +2211,7 @@ export default function Chatbot({
                           isDark={isDark}
                           userInfo={userInfo}
                           handoffConfig={handoffConfig}
+                          onRetry={retrySend}
                           onWhatsappClick={(botMsg, destination) =>
                             analytics.whatsappClicked({
                               chatId: activeChat?.id,
